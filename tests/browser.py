@@ -2,12 +2,42 @@ import os
 import subprocess
 import tempfile
 import unittest
+import threading
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
 
 class InterfaceTests(unittest.TestCase):
+    def test_static_pages_preview(self):
+        subprocess.run(['node', 'scripts/build-pages.mjs'], cwd=ROOT, check=True, capture_output=True)
+        server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(ROOT / 'dist')))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(executable_path=os.environ.get('JARVIZ_CHROMIUM', '/usr/bin/chromium'), args=['--no-sandbox'])
+                page = browser.new_page(viewport={'width': 390, 'height': 844})
+                requests, errors = [], []
+                page.on('request', lambda req: requests.append(req.url))
+                page.on('pageerror', lambda error: errors.append(str(error)))
+                page.goto(f'http://127.0.0.1:{server.server_port}')
+                expect(page.locator('.preview-banner')).to_be_visible()
+                expect(page.locator('#settings-dialog')).not_to_be_visible()
+                expect(page.locator('#settings-button')).not_to_be_visible()
+                expect(page.get_by_role('link', name='Baixar aplicativo completo ↗')).to_have_attribute('href', 'https://github.com/wll777z/Jarviz-pessoal/archive/refs/heads/main.zip')
+                page.get_by_label('Seu comando').fill('Olá')
+                page.get_by_role('button', name='Enviar comando').click()
+                expect(page.locator('#conversation')).to_contain_text('Nenhum comando foi executado nesta página.')
+                self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+                self.assertFalse(any('/api/' in url for url in requests))
+                self.assertEqual(errors, [])
+                browser.close()
+        finally:
+            server.shutdown()
+            server.server_close()
+
     def test_functional_interface(self):
         with tempfile.TemporaryDirectory(prefix='jarviz-ui-') as directory:
             root = Path(directory)

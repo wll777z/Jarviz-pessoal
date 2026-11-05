@@ -23,5 +23,5 @@ if not exist node_modules\@msgpack\msgpack\package.json (
     exit /b 1
   )
 )
-node server/server.mjs
+node server/server.mjs --open
 pause

@@ -1,4 +1,5 @@
 const $ = selector => document.querySelector(selector);
+const isPreview = Boolean(document.querySelector('meta[name="jarviz-mode"][content="preview"]'));
 const states = {
   idle: ['AGUARDANDO COMANDO', 'Como posso ajudar?', 'Uma ideia. Um comando. Novas possibilidades.'],
   listening: ['OUVINDO', 'Estou ouvindo.', 'Sua transcrição aparecerá no campo de comando.'],
@@ -35,7 +36,7 @@ function controls() {
   $('#approve-button').disabled = busy;
   $('#deny-button').disabled = busy;
   $('#reset-button').disabled = busy;
-  $('#settings-button').disabled = busy || Boolean(pending) || !available;
+  $('#settings-button').disabled = busy || Boolean(pending) || !available || isPreview;
 }
 function addEvent(label, title, description = '') {
   const article = document.createElement('article');
@@ -49,6 +50,15 @@ function addEvent(label, title, description = '') {
   $('#conversation').scrollTop = 0;
 }
 async function api(route, data) {
+  if (isPreview) {
+    if (route === 'session') return { token: 'preview', configured: false, model: 'openrouter/free', root: '', pending: null, fishVoice: 'a5b93aeddcc948c19ea04f0afe9d178c', fishModel: 's2.1-pro-free' };
+    if (route === 'reset') return { ok: true };
+    if (route === 'chat') {
+      await new Promise(resolve => setTimeout(resolve, 700));
+      return { reply: 'Esta é a prévia visual online do Jarviz. Para conversar com a IA, usar a voz Fish e autorizar ações no computador, baixe o projeto pelo botão acima e execute Iniciar-Jarviz.cmd no Windows. Nenhum comando foi executado nesta página.', pending: null };
+    }
+    throw new Error('Disponível no aplicativo local para Windows.');
+  }
   const response = await fetch('/api/' + route, {
     method: data === undefined ? 'GET' : 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Jarviz-Client': '1', 'X-Jarviz-Token': token },
@@ -68,6 +78,7 @@ function stopVoice() {
 }
 async function speak(text, force = false) {
   stopVoice();
+  if (isPreview) { state('idle'); return; }
   if (!preferences.enabled && !force) { if (!pending) state('idle'); return; }
   if (preferences.provider === 'fish') {
     const generation = speechGeneration;
@@ -213,7 +224,7 @@ function applyMotion() {
 applyMotion();
 $('#motion-toggle').addEventListener('click', () => { preferences.reduced = !preferences.reduced; applyMotion(); savePreferences(); });
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (Recognition) {
+if (Recognition && !isPreview) {
   recognition = new Recognition(); recognition.lang = 'pt-BR'; recognition.continuous = false; recognition.interimResults = true;
   recognition.onstart = () => { listening = true; stopVoice(); $('#mic-button').setAttribute('aria-pressed', 'true'); $('#mic-button').setAttribute('aria-label', 'Parar microfone'); $('#mic-status').textContent = 'Ouvindo'; state('listening'); };
   recognition.onresult = event => { $('#command').value = Array.from(event.results).map(result => result[0].transcript).join(' ').slice(0, 8000); };
@@ -231,10 +242,11 @@ function clock() { const now = new Date(); $('#clock').dateTime = now.toISOStrin
 clock(); setInterval(clock, 1000); controls();
 try {
   const session = await api('session'); token = session.token; available = true;
-  $('#backend-status').textContent = 'Conectado'; fillConfig(session); showPending(session.pending);
+  $('#backend-status').textContent = isPreview ? 'Prévia estática' : 'Conectado'; fillConfig(session); showPending(session.pending);
   $('#conversation').replaceChildren();
-  addEvent('SISTEMA', 'Jarviz local conectado.', session.configured ? 'Envie uma mensagem para começar.' : 'Abra Configurações e voz para adicionar sua chave OpenRouter.');
-  if (!session.configured) settings.showModal();
+  addEvent('SISTEMA', isPreview ? 'Prévia visual online.' : 'Jarviz local conectado.', isPreview ? 'Sem conexão à IA, à voz ou aos arquivos. Instale o aplicativo Windows para usar essas funções.' : session.configured ? 'Envie uma mensagem para começar.' : 'Abra Configurações e voz para adicionar sua chave OpenRouter.');
+  if (!session.configured && !isPreview) settings.showModal();
+  if (isPreview) { $('#ai-status').textContent = 'Somente no app local'; $('#settings-button').hidden = true; $('#stop-button').hidden = true; $('#mic-status').textContent = 'Somente no app local'; }
 } catch {
   state('alert'); $('#backend-status').textContent = 'Desconectado';
   addEvent('CONEXÃO', 'Inicie o servidor local.', 'No Windows, execute Iniciar-Jarviz.cmd e abra o endereço 127.0.0.1 indicado no terminal.');

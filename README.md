@@ -74,3 +74,11 @@ Testes Node verificam autenticação, origem, aprovação/recusa/replay, arquivo
 O teste opcional `python3 tests/browser.py` exige Python, Playwright e Chromium; no Linux usa `/usr/bin/chromium`, ou configure `JARVIZ_CHROMIUM`. Ele inicia um backend com provedor de teste explícito, valida conversa, aprovações, persistência de movimento e layout móvel. Não confirma IA real nem qualidade de voz. Capturas no ambiente de desenvolvimento: `/workspace/jarviz-functional-desktop.png` e `/workspace/jarviz-functional-mobile.png`.
 
 A validação automática foi feita em Linux. Abertura de programas, PowerShell, permissões do microfone e som precisam ser validados no Windows do usuário. Chamadas reais OpenRouter/Fish dependem de chaves e acesso à rede; não são apresentadas como verificadas sem esses requisitos.
+
+## Site público no GitHub Pages
+
+O workflow `.github/workflows/pages.yml` publica somente o HUD e os links de instalação em `dist/`. Backend, testes, chaves e dados locais não entram no artefato. O site é uma prévia explicitamente identificada: ele não faz chamadas de IA, não captura áudio e não executa ações no computador. O botão de download entrega o projeto completo; depois de iniciar no Windows, o botão “Abrir Jarviz local já iniciado” leva ao servidor da própria máquina na porta padrão 3210.
+
+Ative em **Settings → Pages → Build and deployment → Source → GitHub Actions**. Depois execute o workflow **Publicar prévia Jarviz** em **Actions**, ou faça um novo push em main. O endereço padrão previsto é `https://wll777z.github.io/Jarviz-pessoal/`; confirme o resultado do deploy antes de tratá-lo como publicado.
+
+Para gerar os arquivos estáticos localmente: `node scripts/build-pages.mjs`. A versão completa continua sendo iniciada com `Iniciar-Jarviz.cmd` e não depende do Pages. O iniciador abre o navegador no Windows após o servidor iniciar.

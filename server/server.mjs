@@ -71,7 +71,8 @@ export async function createJarviz(options = {}) {
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
     const host = req.headers.host || '';
     const ownOrigin = `http://${host}`;
-    if (!/^127\.0\.0\.1:\d+$/.test(host) || (req.headers.origin && req.headers.origin !== ownOrigin) || req.headers['sec-fetch-site'] === 'cross-site') return send(res, 403, { error: 'Origem não autorizada. Abra pelo endereço 127.0.0.1 exibido no terminal.' });
+    const publicNavigation = req.method === 'GET' && ['/', '/index.html'].includes(req.url) && req.headers['sec-fetch-mode'] === 'navigate';
+    if (!/^127\.0\.0\.1:\d+$/.test(host) || (req.headers.origin && req.headers.origin !== ownOrigin) || (req.headers['sec-fetch-site'] === 'cross-site' && !publicNavigation)) return send(res, 403, { error: 'Origem não autorizada. Abra pelo endereço 127.0.0.1 exibido no terminal.' });
     const url = new URL(req.url, ownOrigin);
     if (url.pathname === '/api/session' && req.method === 'GET') {
       if (req.headers['x-jarviz-client'] !== '1') return send(res, 403, { error: 'Cliente inválido.' });
@@ -162,4 +163,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('JARVIZ_PORT inválida.');
   await app.listen(port);
   console.log(`Jarviz disponível em http://127.0.0.1:${port}\nMantenha este terminal aberto. Ctrl+C encerra.`);
+  if (process.platform === 'win32' && process.argv.includes('--open')) {
+    const { spawn } = await import('node:child_process');
+    const browser = spawn('rundll32.exe', ['url.dll,FileProtocolHandler', `http://127.0.0.1:${port}`], { detached: true, stdio: 'ignore', windowsHide: true });
+    browser.on('error', () => console.error('Abra o endereço acima manualmente no navegador.'));
+    browser.unref();
+  }
 }

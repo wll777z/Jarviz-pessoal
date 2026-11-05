@@ -1,0 +1,12 @@
+import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+const root = new URL('../', import.meta.url);
+const output = new URL('dist/', root);
+await mkdir(output, { recursive: true });
+let html = await readFile(new URL('index.html', root), 'utf8');
+html = html.replace('<meta name="theme-color"', '<meta name="jarviz-mode" content="preview"><meta name="theme-color"');
+html = html.replace('<main id="main">', '<main id="main"><aside class="preview-banner"><div><strong>JARVIZ · PRÉVIA ONLINE</strong><p>Explore o visual. IA, voz e acesso ao computador funcionam no aplicativo local para Windows. Não insira chaves neste site.</p></div><a href="https://github.com/wll777z/Jarviz-pessoal/archive/refs/heads/main.zip">Baixar aplicativo completo ↗</a><a href="https://github.com/wll777z/Jarviz-pessoal#começar-no-windows">Como instalar ↗</a><a href="http://127.0.0.1:3210" rel="noreferrer">Abrir Jarviz local já iniciado ↗</a></aside>');
+await writeFile(new URL('index.html', output), html);
+await writeFile(new URL('.nojekyll', output), '');
+for (const file of ['styles.css', 'app.js']) await copyFile(new URL(file, root), new URL(file, output));
+console.log('Prévia estática gerada em ' + fileURLToPath(output));

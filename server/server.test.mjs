@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { get } from 'node:http';
 import { createJarviz } from './server.mjs';
 
 test('local chat requires authentication, approvals, and keeps secrets private', async () => {
@@ -22,6 +23,11 @@ test('local chat requires authentication, approvals, and keeps secrets private',
     assert.equal((await api('/api/config')).status, 401);
     assert.equal((await fetch(base + '/api/session')).status, 403);
     assert.equal((await api('/api/session', null, { Origin: 'https://evil.example' })).status, 403);
+    const navigationStatus = await new Promise((resolve, reject) => {
+      get(base, { headers: { 'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate' } }, response => { response.resume(); resolve(response.statusCode); }).on('error', reject);
+    });
+    assert.equal(navigationStatus, 200);
+    assert.equal((await api('/api/session', null, { 'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate' })).status, 403);
     assert.equal((await fetch(base + '/server/server.mjs')).status, 404);
     assert.equal((await fetch(base + '/.git/config')).status, 404);
     assert.match((await fetch(base)).headers.get('content-security-policy'), /media-src 'self' blob:/);
