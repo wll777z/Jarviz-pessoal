@@ -1,0 +1,2 @@
+# Jarviz — visual aprovado
+Interface HUD em português, fundo preto azulado, núcleo ciano, anéis segmentados e painéis laterais. Movimento em espera, ouvindo, processando, falando e alerta. Interface responsiva, teclado e redução de movimento. Repositório inicialmente vazio: primeira entrega estática, sem backend, microfone ou métricas reais. Estados e conversa claramente demonstrativos. Publicação no GitHub autorizada após aprovação da imagem conceitual.

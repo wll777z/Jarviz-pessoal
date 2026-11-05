@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050c12">
+  <meta name="description" content="Jarviz — interface experimental de assistente pessoal com HUD e movimento reativo.">
+  <title>JARVIZ · Assistente pessoal</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23050c12'/%3E%3Ctext x='10' y='24' fill='%2365e9ff' font-size='25'%3EJ%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css"><script type="module" src="app.js"></script>
+</head>
+<body data-state="idle">
+  <svg class="icons" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10H15v-7H9v7H3Z"/></symbol>
+    <symbol id="chat" viewBox="0 0 24 24"><path d="M4 4h16v13H9l-5 4Z"/><path d="M8 9h8M8 13h5"/></symbol>
+    <symbol id="pulse" viewBox="0 0 24 24"><path d="M2 12h5l3-8 4 16 3-8h5"/></symbol>
+    <symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></symbol>
+    <symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/></symbol>
+  </defs></svg>
+  <a class="skip" href="#main">Pular para o conteúdo</a>
+  <aside class="rail" aria-label="Navegação principal">
+    <a href="#main" class="monogram" aria-label="Jarviz início">J<span>•</span></a>
+    <nav><a href="#main" class="rail-link active" aria-label="Central" title="Central"><svg><use href="#home"/></svg></a><a href="#conversation-panel" class="rail-link" aria-label="Conversa" title="Conversa"><svg><use href="#chat"/></svg></a><a href="#states-panel" class="rail-link" aria-label="Estados do núcleo" title="Estados do núcleo"><svg><use href="#pulse"/></svg></a></nav>
+    <span class="rail-bottom">JV<br>01</span>
+  </aside>
+  <div class="shell">
+    <header class="header"><a href="#main" class="wordmark">JARVIZ<span>ASSISTENTE PESSOAL</span></a><div class="header-status"><span class="dot"></span>INTERFACE ATIVA<span class="divider"></span><time id="clock">--:--:--</time></div></header>
+    <main id="main">
+      <div class="eyebrow"><span>CENTRAL DE COMANDO</span><span class="edition">JARVIZ OS <b>/</b> CONCEITO 01</span></div>
+      <div class="workspace">
+        <section class="left-column">
+          <div class="panel" id="conversation-panel"><div class="panel-heading"><h2><svg><use href="#pulse"/></svg>ATIVIDADE</h2><span>01</span></div><div id="conversation" class="timeline" role="log" aria-label="Histórico da demonstração" aria-live="polite"><article><span class="event-dot"></span><small>INICIALIZAÇÃO</small><h3>Interface pronta.</h3><p>Seu espaço de comando está preparado.</p></article><article><span class="event-dot dim"></span><small>MODO DEMONSTRAÇÃO</small><h3>Uma nova conexão.</h3><p>Explore os estados do núcleo ou envie um comando de teste.</p></article></div><div class="panel-foot"><span class="dot"></span>SESSÃO LOCAL · SEM BACKEND</div></div>
+          <div class="panel shortcuts"><div class="panel-heading"><h2>ACESSO RÁPIDO</h2><span>↗</span></div><button data-command="O que você pode fazer?">Explorar possibilidades <span>01 ↗</span></button><button data-command="Mostrar status do sistema">Status do sistema <span>02 ↗</span></button><button data-command="Preparar meu dia">Preparar meu dia <span>03 ↗</span></button></div>
+        </section>
+        <section class="core-section" aria-label="Núcleo do assistente">
+          <div class="core-meta"><span><i></i>NÚCLEO NEURAL</span><span>JV–001</span></div>
+          <div class="reactor" aria-hidden="true"><div class="reactor-grid"></div><svg class="orbit orbit-outer" viewBox="0 0 500 500"><circle class="hairline" cx="250" cy="250" r="235"/><circle class="ticks" cx="250" cy="250" r="220"/><circle class="arc" cx="250" cy="250" r="235"/><circle class="satellite" cx="250" cy="15" r="3"/><circle class="satellite amber" cx="250" cy="485" r="3"/></svg><svg class="orbit orbit-mid" viewBox="0 0 500 500"><circle class="segments" cx="250" cy="250" r="189"/><circle class="fine-segments" cx="250" cy="250" r="172"/><circle class="amber-line" cx="250" cy="250" r="158"/></svg><svg class="orbit orbit-inner" viewBox="0 0 500 500"><circle class="inner-segments" cx="250" cy="250" r="137"/><circle class="hairline" cx="250" cy="250" r="120"/><circle class="ticks" cx="250" cy="250" r="105"/></svg><div class="crosshair"></div><div class="orb"><div></div></div><svg class="wave" viewBox="0 0 600 100" preserveAspectRatio="none"><path d="M0 50 Q25 50 45 50 T85 48 T120 55 T150 38 T180 65 T210 24 T240 77 T270 15 T300 83 T330 25 T360 69 T390 39 T420 56 T450 47 T500 50 T600 50"/><path class="wave-secondary" d="M0 50 Q60 50 90 49 T150 55 T210 36 T270 70 T330 25 T390 66 T450 44 T510 50 T600 50"/></svg><span class="coordinate coordinate-top">0 0 1 / S Y N C</span><span class="coordinate coordinate-bottom">PERSONAL INTELLIGENCE SYSTEM</span></div>
+          <div class="core-copy"><span class="state-label" id="state-label" role="status">AGUARDANDO COMANDO</span><h1 id="core-title">Como posso ajudar?</h1><p id="core-description">Uma ideia. Um comando. Novas possibilidades.</p></div>
+          <div class="core-signature"><span></span>INTELIGÊNCIA EM MOVIMENTO<span></span></div>
+        </section>
+        <section class="right-column">
+          <div class="panel" id="states-panel"><div class="panel-heading"><h2><svg><use href="#gear"/></svg>ESTADOS DO NÚCLEO</h2><span>05</span></div><p class="panel-intro">Experimente o movimento de cada estado.</p><div class="states" role="group" aria-label="Demonstrar estados"><button data-mode="idle" aria-label="Em espera" aria-pressed="true"><i></i><span>Em espera<small>PULSO AMBIENTE</small></span><b>01</b></button><button data-mode="listening" aria-label="Ouvindo" aria-pressed="false"><i></i><span>Ouvindo<small>CAPTAÇÃO · SIMULAÇÃO</small></span><b>02</b></button><button data-mode="processing" aria-label="Processando" aria-pressed="false"><i></i><span>Processando<small>ÓRBITAS EM SINCRONIA</small></span><b>03</b></button><button data-mode="speaking" aria-label="Falando" aria-pressed="false"><i></i><span>Falando<small>ONDA · SIMULAÇÃO</small></span><b>04</b></button><button data-mode="alert" aria-label="Alerta" aria-pressed="false"><i></i><span>Alerta<small>SINAL DE ATENÇÃO</small></span><b>05</b></button></div></div>
+          <div class="panel connection"><div class="panel-heading"><h2>CONEXÕES</h2><span>↗</span></div><div><span>Interface local</span><span class="connection-ok">Disponível</span></div><div><span>Assistente IA</span><span>Não conectado</span></div><div><span>Microfone</span><span>Não utilizado</span></div></div>
+        </section>
+      </div>
+      <section class="command-section" aria-label="Comandos de demonstração"><form id="command-form"><span class="command-prefix" aria-hidden="true">⌘</span><label class="sr-only" for="command">Seu comando</label><input id="command" name="command" placeholder="Digite um comando para o Jarviz…" maxlength="500" autocomplete="off" required><button type="submit" class="send" aria-label="Enviar comando"><svg><use href="#arrow"/></svg></button></form><div class="command-caption"><span><i></i>DEMONSTRAÇÃO INTERATIVA</span><span>ENTER PARA ENVIAR <b>↵</b></span></div><p class="demo-note">Respostas demonstrativas. Nenhum áudio é capturado e nenhum comando é executado.</p></section>
+    </main>
+    <footer><span>JARVIZ <b>/</b> SEU UNIVERSO, CONECTADO.</span><button id="motion-toggle" aria-pressed="false">Reduzir movimento</button><span class="footer-version">EXPERIÊNCIA VISUAL · V0.1</span></footer>
+  </div>
+</body>
+</html>
