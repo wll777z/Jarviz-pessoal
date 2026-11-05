@@ -14,6 +14,6 @@ if errorlevel 1 (
   exit /b 1
 )
 echo Abra http://127.0.0.1:3210 no Microsoft Edge ou Chrome.
-echo Configure sua chave OpenRouter na interface. Nunca publique a chave no GitHub.
+echo Selecione o provedor e cadastre sua chave na interface. Nunca publique a chave no GitHub.
 node server/server.mjs --open
 pause

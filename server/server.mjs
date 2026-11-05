@@ -139,8 +139,9 @@ export async function createJarviz(options = {}) {
         const { dataDir: _, ...stored } = next;
         await writeFile(configFile + '.tmp', JSON.stringify(stored), { mode: 0o600 });
         await rename(configFile + '.tmp', configFile);
-        config = next; secrets.splice(0,secrets.length,config.key,...Object.values(config.providerKeys||{})); memory=await createMemory(dataDir,{days:config.retentionDays,maxBytes:config.memoryMaxMB*1024*1024,secrets}); messages = [{ role: 'system', content: SYSTEM }]; conversationId=randomUUID();
-        return send(res, 200, publicConfig());
+        const conversationReset=next.provider!==config.provider||next.model!==config.model||providerKey(next)!==providerKey(config);
+        config = next; secrets.splice(0,secrets.length,config.key,...Object.values(config.providerKeys||{})); memory=await createMemory(dataDir,{days:config.retentionDays,maxBytes:config.memoryMaxMB*1024*1024,secrets}); if(conversationReset){messages=[{role:'system',content:SYSTEM}];conversationId=randomUUID();}
+        return send(res, 200, {...publicConfig(),conversationReset});
       }
       if (url.pathname === '/api/reset') { await persist(); pending=null; messages=[{role:'system',content:SYSTEM}];conversationId=randomUUID(); sources=[];return send(res,200,{ok:true}); }
       if(url.pathname==='/api/memory') {if(data.action==='clear'){await memory.clearAll();messages=[{role:'system',content:SYSTEM}];pending=null;return send(res,200,{ok:true});}if(!config.memoryEnabled)throw new Error('Memória desabilitada.'); if(data.action==='remember')return send(res,200,{note:await memory.remember(data.text)});if(data.action==='forget'){await memory.forget(data.id);return send(res,200,{ok:true});}if(data.action==='clear'){await memory.clearAll();messages=[{role:'system',content:SYSTEM}];pending=null;return send(res,200,{ok:true});}throw new Error('Ação de memória inválida.');}

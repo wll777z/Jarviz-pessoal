@@ -6,6 +6,11 @@ test('a community free-tier listing never substitutes for explicit external bill
  assert.equal(calls,0);
  const result=await complete({config:{provider:'gemini',model:'gemini-2.5-flash',key:'test',externalBillingAccepted:true},messages:[],request});assert.equal(result.message.content,'OK');assert.equal(calls,1);
 });
+test('saving voice or memory settings preserves active conversation and existing provider keys',async()=>{
+ const directory=await mkdtemp(path.join(tmpdir(),'jarviz-settings-'));let sent;
+ const app=await createJarviz({dataDir:directory,provider:async data=>{sent=data;return{content:'OK'};}});await app.listen(0);const base=`http://127.0.0.1:${app.server.address().port}`;const headers={'Content-Type':'application/json','X-Jarviz-Client':'1'};const post=(route,data)=>fetch(base+'/api/'+route,{method:'POST',headers,body:JSON.stringify(data)});
+ try{headers['X-Jarviz-Token']=(await(await fetch(base+'/api/session',{headers})).json()).token;await post('config',{root:directory,model:'openrouter/free',key:'test-key'});await post('chat',{message:'Minha pergunta anterior'});const saved=await post('config',{root:directory,model:'openrouter/free',ttsEngine:'browser'});assert.equal(saved.status,200);await post('chat',{message:'Continue'});assert.ok(sent.messages.some(m=>m.content==='Minha pergunta anterior'));assert.equal((await(await fetch(base+'/api/config',{headers})).json()).configured,true);}finally{await app.close();await rm(directory,{recursive:true,force:true});}
+});
 test('provider credentials are isolated and keys never appear in public configuration',async()=>{
  const directory=await mkdtemp(path.join(tmpdir(),'jarviz-provider-'));const calls=[];const app=await createJarviz({dataDir:directory,openrouterFetch:async(url,options)=>{calls.push({url,key:options.headers.Authorization,body:JSON.parse(options.body)});return Response.json({choices:[{message:{content:'OK'}}]});}});await app.listen(0);const base=`http://127.0.0.1:${app.server.address().port}`;const headers={'Content-Type':'application/json','X-Jarviz-Client':'1'};const post=(route,data)=>fetch(base+'/api/'+route,{method:'POST',headers,body:JSON.stringify(data)});
  try{headers['X-Jarviz-Token']=(await(await fetch(base+'/api/session',{headers})).json()).token;

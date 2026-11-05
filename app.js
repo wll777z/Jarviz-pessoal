@@ -212,7 +212,7 @@ $('#settings-form').addEventListener('submit', async event => {
     const config = await api('config', { key: $('#api-key').value.trim(),provider:$('#provider').value,acknowledgeExternalBilling:$('#external-billing-consent').checked, model: $('#model').value.trim(), root: $('#root-folder').value.trim(), allowCommands: $('#allow-commands').checked,fallbackModel:$('#fallback-model').value.trim(),visionModel:$('#vision-model').value.trim(),audioModel:$('#audio-model').value.trim(),allowPaid:$('#allow-paid').checked,webEnabled:$('#web-enabled').checked,memoryEnabled:$('#memory-enabled').checked,retentionDays:Number($('#retention-days').value),memoryMaxMB:Number($('#memory-max-mb').value),maxToolSteps:Number($('#max-tool-steps').value),ttsEngine:$('#tts-engine').value,ttsExecutable:$('#tts-executable').value.trim(),ttsModel:$('#tts-model').value.trim() });
     $('#api-key').value = ''; readVoicePreferences(); fillConfig(config);
     $('#settings-message').textContent = 'Salvo neste computador. A conexão será testada ao enviar uma mensagem.';
-    addEvent('CONFIGURAÇÃO', 'Configurações salvas.', 'A conversa do servidor foi reiniciada para aplicar o modelo e a pasta autorizada.');
+    addEvent('CONFIGURAÇÃO', 'Configurações salvas.', config.conversationReset?'Conversa reiniciada porque o provedor, modelo ou chave mudou.':'Conversa atual e chaves existentes preservadas.');
     state('idle');
   } catch (error) { $('#settings-message').textContent = error.message; }
   finally { if (button) button.disabled = false; }
