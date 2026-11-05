@@ -15,13 +15,5 @@ if errorlevel 1 (
 )
 echo Abra http://127.0.0.1:3210 no Microsoft Edge ou Chrome.
 echo Configure sua chave OpenRouter na interface. Nunca publique a chave no GitHub.
-if not exist node_modules\@msgpack\msgpack\package.json (
-  call npm ci --no-audit --no-fund
-  if errorlevel 1 (
-    echo Falha ao instalar dependencias. Verifique sua conexao e tente novamente.
-    pause
-    exit /b 1
-  )
-)
 node server/server.mjs --open
 pause

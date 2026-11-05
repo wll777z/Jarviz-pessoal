@@ -1,3 +1,4 @@
+import { selectVoice } from './voice-selection.mjs';
 const $ = selector => document.querySelector(selector);
 const isPreview = Boolean(document.querySelector('meta[name="jarviz-mode"][content="preview"]'));
 const states = {
@@ -11,16 +12,15 @@ let token = '';
 let pending = null;
 let busy = false;
 let available = false;
+let serverConfig = null;
 let recognition = null;
 let listening = false;
 let speechGeneration = 0;
-let audio = null;
-let audioURL = null;
-let voiceRequest = null;
 const speech = window.speechSynthesis;
 const settings = $('#settings-dialog');
-let preferences = { reduced: false, voice: '', rate: .95, pitch: .8, enabled: true, provider: 'fish' };
+let preferences = { reduced: false, voice: '', rate: .92, pitch: .78, enabled: true };
 try { preferences = { ...preferences, ...JSON.parse(localStorage.getItem('jarviz-preferences') || '{}') }; } catch { /* Private storage can be unavailable. */ }
+delete preferences.provider;
 function savePreferences() { try { localStorage.setItem('jarviz-preferences', JSON.stringify(preferences)); } catch { /* Keep session settings. */ } }
 function state(mode) {
   document.body.dataset.state = mode;
@@ -51,11 +51,11 @@ function addEvent(label, title, description = '') {
 }
 async function api(route, data) {
   if (isPreview) {
-    if (route === 'session') return { token: 'preview', configured: false, model: 'openrouter/free', root: '', pending: null, fishVoice: 'a5b93aeddcc948c19ea04f0afe9d178c', fishModel: 's2.1-pro-free' };
+    if (route === 'session') return { token: 'preview', configured: false, model: 'openrouter/free', root: '', pending: null };
     if (route === 'reset') return { ok: true };
     if (route === 'chat') {
       await new Promise(resolve => setTimeout(resolve, 700));
-      return { reply: 'Esta é a prévia visual online do Jarviz. Para conversar com a IA, usar a voz Fish e autorizar ações no computador, baixe o projeto pelo botão acima e execute Iniciar-Jarviz.cmd no Windows. Nenhum comando foi executado nesta página.', pending: null };
+      return { reply: 'Esta é a prévia visual online do Jarviz. Para conversar com a IA, usar a voz e autorizar ações no computador, baixe o projeto pelo botão acima e execute Iniciar-Jarviz.cmd no Windows. Nenhum comando foi executado nesta página.', pending: null };
     }
     throw new Error('Disponível no aplicativo local para Windows.');
   }
@@ -70,55 +70,32 @@ async function api(route, data) {
   return result;
 }
 function stopVoice() {
-  const wasVoiceActive = Boolean(voiceRequest || audio);
-  speechGeneration++; speech?.cancel(); voiceRequest?.abort(); voiceRequest = null;
-  if (audio) { audio.pause(); audio.removeAttribute('src'); audio.load(); audio = null; }
-  if (audioURL) { URL.revokeObjectURL(audioURL); audioURL = null; }
-  if (document.body.dataset.state === 'speaking' || wasVoiceActive) state(pending ? 'alert' : 'idle');
+  speechGeneration++; speech?.cancel();
+  if (document.body.dataset.state === 'speaking') state(pending ? 'alert' : 'idle');
 }
 async function speak(text, force = false) {
   stopVoice();
+  const reportVoice = (message, failed = false) => {
+    if (settings.open) $('#voice-test-message').textContent = message;
+    else if (failed) { $('#request-error').textContent = message; $('#request-error').hidden = false; }
+  };
   if (isPreview) { state('idle'); return; }
   if (!preferences.enabled && !force) { if (!pending) state('idle'); return; }
-  if (preferences.provider === 'fish') {
-    const generation = speechGeneration;
-    const controller = new AbortController(); voiceRequest = controller;
-    if (text.length > 3000) addEvent('VOZ', 'Leitura limitada aos primeiros 3000 caracteres.', 'A resposta completa permanece em texto.');
-    if (!pending) state('processing');
-    try {
-      const response = await fetch('/api/tts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Jarviz-Client': '1', 'X-Jarviz-Token': token },
-        body: JSON.stringify({ text: text.slice(0, 3000) }), signal: AbortSignal.any([controller.signal, AbortSignal.timeout(70000)]),
-      });
-      if (!response.ok) { const result = await response.json(); throw new Error(result.error || 'Falha ao gerar a voz Fish Audio.'); }
-      const blob = await response.blob();
-      if (generation !== speechGeneration) return;
-      audioURL = URL.createObjectURL(blob); audio = new Audio(audioURL);
-      audio.playbackRate = Number(preferences.rate);
-      audio.onplaying = () => { if (generation === speechGeneration) state('speaking'); };
-      audio.onended = () => { if (generation === speechGeneration) { stopVoice(); state(pending ? 'alert' : 'idle'); } };
-      audio.onerror = () => { if (generation === speechGeneration) { addEvent('VOZ', 'Não foi possível reproduzir o áudio Fish. A resposta permanece em texto.'); stopVoice(); state('idle'); } };
-      await audio.play();
-    } catch (error) {
-      if (generation !== speechGeneration) return;
-      addEvent('VOZ', error.message, 'A resposta está disponível em texto. Você pode selecionar a voz do navegador em Configurações.');
-      stopVoice(); state(pending ? 'alert' : 'idle');
-    } finally { if (generation === speechGeneration) voiceRequest = null; }
-    return;
-  }
-  if (!speech || (!preferences.enabled && !force)) { if (!pending) state('idle'); return; }
+  if (!speech || (!preferences.enabled && !force)) { reportVoice('Este navegador não disponibiliza síntese de voz. Tente Edge ou Chrome.', true); if (!pending) state('idle'); return; }
+  reportVoice('Iniciando a voz do navegador…');
   const generation = speechGeneration;
   const utterance = new SpeechSynthesisUtterance(text.slice(0, 5000));
   const voices = speech.getVoices();
-  utterance.voice = voices.find(v => v.voiceURI === preferences.voice) || voices.find(v => /^pt-BR$/i.test(v.lang)) || voices.find(v => v.lang.startsWith('pt')) || null;
+  utterance.voice = selectVoice(voices, preferences.voice);
   utterance.lang = utterance.voice?.lang || 'pt-BR';
   utterance.rate = Number(preferences.rate);
   utterance.pitch = Number(preferences.pitch);
-  utterance.onstart = () => { if (generation === speechGeneration) state('speaking'); };
+  utterance.onstart = () => { if (generation === speechGeneration) { state('speaking'); reportVoice('Voz do navegador em reprodução.'); } };
   utterance.onend = () => { if (generation === speechGeneration) state(pending ? 'alert' : 'idle'); };
   utterance.onerror = event => {
     if (generation !== speechGeneration || event.error === 'canceled' || event.error === 'interrupted') return;
     state(pending ? 'alert' : 'idle');
+    reportVoice('Erro na voz do navegador: ' + event.error + '. Confira as vozes instaladas e a saída de áudio.', true);
     addEvent('VOZ', 'Não foi possível reproduzir a voz.', 'A resposta continua disponível em texto. Confira as vozes do navegador nas configurações.');
   };
   speech.speak(utterance);
@@ -134,7 +111,10 @@ function showPending(value) {
   controls();
 }
 async function handleResult(result) {
-  if (result.reply) addEvent('JARVIZ', result.reply);
+  if (result.reply) {
+    addEvent('JARVIZ', result.reply);
+    $('#latest-answer').textContent = result.reply; $('#latest-answer-panel').hidden = false;
+  }
   showPending(result.pending);
   if (!pending && result.reply) speak(result.reply);
 }
@@ -144,9 +124,10 @@ $('#command-form').addEventListener('submit', async event => {
   if (!message || busy || pending || !available) return;
   stopVoice(); recognition?.abort();
   busy = true; controls(); state('processing');
+  $('#request-error').hidden = true;
   addEvent('VOCÊ', message); $('#command').value = '';
   try { await handleResult(await api('chat', { message })); }
-  catch (error) { state('alert'); addEvent('ERRO', error.message); }
+  catch (error) { state('alert'); addEvent('ERRO', error.message); $('#request-error').textContent = error.message; $('#request-error').hidden = false; }
   finally { busy = false; controls(); }
 });
 async function decide(approved) {
@@ -172,9 +153,12 @@ $('#reset-button').addEventListener('click', async () => {
   finally { busy = false; controls(); }
 });
 function voicesChanged() {
-  const selector = $('#voice'); selector.replaceChildren(new Option('Padrão em português', ''));
-  speech?.getVoices().forEach(voice => selector.add(new Option(`${voice.name} · ${voice.lang}${voice.localService ? ' · local' : ' · rede'}`, voice.voiceURI)));
-  selector.value = preferences.voice;
+  const selector = $('#voice'); selector.replaceChildren(new Option('Automática · português masculino quando disponível', ''));
+  const voicesAvailable = speech?.getVoices() || [];
+  voicesAvailable.forEach(voice => selector.add(new Option(`${voice.name} · ${voice.lang}${voice.localService ? ' · local' : ' · rede'}`, voice.voiceURI)));
+  selector.value = voicesAvailable.some(v => v.voiceURI === preferences.voice) ? preferences.voice : '';
+  const selected = selectVoice(voicesAvailable, selector.value);
+  $('#voice-description').textContent = selected ? `Voz selecionada: ${selected.name} (${selected.lang})${selected.localService ? ' · disponível no dispositivo' : ' · pode usar a rede do navegador'}.` : 'Aguardando as vozes do Windows. Se nenhuma aparecer, instale uma voz em Configurações do Windows → Hora e idioma → Fala.';
 }
 speech?.addEventListener('voiceschanged', voicesChanged); voicesChanged();
 for (const [id, key] of [['voice-rate', 'rate'], ['voice-pitch', 'pitch']]) {
@@ -182,25 +166,31 @@ for (const [id, key] of [['voice-rate', 'rate'], ['voice-pitch', 'pitch']]) {
   $('#' + id).addEventListener('input', event => $('#' + key + '-value').textContent = event.target.value);
 }
 $('#voice-enabled').checked = preferences.enabled;
-$('#voice-provider').value = preferences.provider;
 function readVoicePreferences() {
-  preferences.provider = $('#voice-provider').value;
   preferences.voice = $('#voice').value; preferences.rate = Number($('#voice-rate').value); preferences.pitch = Number($('#voice-pitch').value); preferences.enabled = $('#voice-enabled').checked;
   savePreferences();
 }
-$('#voice-test').addEventListener('click', () => { readVoicePreferences(); speak('Boa noite. Sou o Jarviz, seu assistente pessoal. Sistemas prontos para começar.', true); });
+$('#voice-test').addEventListener('click', () => {
+  readVoicePreferences(); speak('Boa noite. Sou o Jarviz, seu assistente pessoal. Sistemas prontos para começar.', true);
+});
+$('#ai-test').addEventListener('click', async () => {
+  if ($('#api-key').value.trim() || $('#model').value.trim() !== serverConfig?.model) { $('#ai-test-message').textContent = 'Salve a chave e o modelo antes de testar a IA.'; return; }
+  $('#ai-test').disabled = true; $('#ai-test-message').textContent = 'Testando a conexão com a OpenRouter…';
+  try { const result = await api('test-ai', {}); $('#ai-test-message').textContent = result.message; $('#ai-status').textContent = 'Conexão verificada'; }
+  catch (error) { $('#ai-test-message').textContent = error.message; $('#ai-status').textContent = 'Falha no teste'; }
+  finally { $('#ai-test').disabled = false; }
+});
 $('#stop-button').addEventListener('click', stopVoice);
-$('#close-settings').addEventListener('click', () => { $('#api-key').value = ''; $('#fish-key').value = ''; settings.close(); });
-settings.addEventListener('close', () => { $('#api-key').value = ''; $('#fish-key').value = ''; });
+$('#close-settings').addEventListener('click', () => { $('#api-key').value = ''; settings.close(); });
+settings.addEventListener('close', () => { $('#api-key').value = ''; });
 $('#settings-button').addEventListener('click', async () => {
   try { fillConfig(await api('config')); $('#settings-message').textContent = ''; settings.showModal(); }
   catch (error) { addEvent('ERRO', error.message); }
 });
 function fillConfig(config) {
+  serverConfig = config;
   $('#model').value = config.model; $('#root-folder').value = config.root; $('#allow-commands').checked = config.allowCommands;
   $('#api-key').placeholder = config.configured ? 'Chave já configurada; vazio mantém a atual' : 'Cole sua chave OpenRouter';
-  $('#fish-key').placeholder = config.fishConfigured ? 'Chave Fish já configurada; vazio mantém a atual' : 'Cole sua chave Fish Audio';
-  $('#fish-voice').value = config.fishVoice; $('#fish-model').value = config.fishModel;
   $('#ai-status').textContent = config.configured ? 'Configurado · não verificado' : 'Não configurado';
 }
 $('#settings-form').addEventListener('submit', async event => {
@@ -208,8 +198,8 @@ $('#settings-form').addEventListener('submit', async event => {
   const button = event.submitter; if (button) button.disabled = true;
   $('#settings-message').textContent = 'Salvando…';
   try {
-    const config = await api('config', { key: $('#api-key').value.trim(), model: $('#model').value.trim(), root: $('#root-folder').value.trim(), allowCommands: $('#allow-commands').checked, fishKey: $('#fish-key').value.trim(), fishVoice: $('#fish-voice').value.trim(), fishModel: $('#fish-model').value.trim() });
-    $('#api-key').value = ''; $('#fish-key').value = ''; readVoicePreferences(); fillConfig(config);
+    const config = await api('config', { key: $('#api-key').value.trim(), model: $('#model').value.trim(), root: $('#root-folder').value.trim(), allowCommands: $('#allow-commands').checked });
+    $('#api-key').value = ''; readVoicePreferences(); fillConfig(config);
     $('#settings-message').textContent = 'Salvo neste computador. A conexão será testada ao enviar uma mensagem.';
     addEvent('CONFIGURAÇÃO', 'Configurações salvas.', 'A conversa do servidor foi reiniciada para aplicar o modelo e a pasta autorizada.');
     state('idle');

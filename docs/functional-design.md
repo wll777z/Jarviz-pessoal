@@ -12,5 +12,5 @@ Voz: Web Speech API quando suportada, seleção das vozes instaladas e ajuste de
 
 Instalação Windows por script CMD com Node.js 24. Testes locais usam provedor de teste controlado e arquivos temporários; a chamada real requer chave do usuário e rede permitida. Não pedir chave pelo chat. Sem alegar validação no Windows quando o executor é Linux.
 
-## Voz escolhida pelo usuário
-Fish Audio, reference_id a5b93aeddcc948c19ea04f0afe9d178c. Chave própria opcional no perfil local; navegador permanece alternativa sem chave. Endpoint oficial /v1/tts com MessagePack e header model. Modelo padrão s2.1-pro-free, documentado como gratuito no SDK oficial fishaudio/fish-audio-python, commit 30d271311566b7516911234ad1d25ff65b3594ec. Fonte consultada: README.md e src/fishaudio/resources/tts.py. Permissão/disponibilidade da voz não verificadas com conta real.
+## Voz atual sem chave
+A pedido do usuário, Fish Audio foi removido. A voz agora usa Web Speech API, seleção automática de voz masculina portuguesa quando presente e ajustes de tom/velocidade. IDs e chaves de voz não são necessários. A voz não é uma reprodução exata do personagem; qualidade e timbre dependem do Windows/navegador. Preferências antigas de provedor são ignoradas e campos Fish são descartados no próximo salvamento da configuração.

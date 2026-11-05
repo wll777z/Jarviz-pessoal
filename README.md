@@ -1,6 +1,6 @@
 # Jarviz pessoal
 
-Assistente local para **Windows 10/11**, com interface HUD, conversa OpenRouter, voz e ações no computador mediante aprovação.
+Assistente local para **Windows 10/11**, com interface HUD, conversa OpenRouter, voz do Windows e ações no computador mediante aprovação.
 
 ## Começar no Windows
 
@@ -19,21 +19,13 @@ Crie sua chave em https://openrouter.ai/settings/keys. O padrão é `openrouter/
 
 Conversas e resultados de ferramentas autorizados são enviados à OpenRouter e ao provedor do modelo. Não aprove leitura de conteúdo que não queira compartilhar. Arquivos do computador são dados, nunca instruções para o assistente.
 
-## Voz Fish Audio indicada
+## Voz inspirada no Jarviz — sem chave de voz
 
-A opção Fish Audio é a voz padrão para novas instalações. O ID **a5b93aeddcc948c19ea04f0afe9d178c** já vem preenchido, conforme a [página da voz fornecida](https://fish.audio/pt/app/text-to-speech/?modelId=a5b93aeddcc948c19ea04f0afe9d178c).
+A fala usa a síntese de voz do Windows/navegador, sem conta de voz ou API externa configurada pelo usuário. O perfil inicial usa tom mais grave, velocidade 0,92 e seleção automática de uma voz masculina em português quando disponível, como Microsoft Daniel. Você pode escolher qualquer voz disponível e ajustar tom e velocidade em **Configurações e voz**.
 
-1. Obtenha uma chave de API na sua conta Fish Audio.
-2. Em Configurações, selecione **Fish Audio · voz Jarviz** e preencha **Chave Fish Audio**.
-3. Mantenha o modelo **s2.1-pro-free**, salve e use **Testar voz**.
+O timbre depende do dispositivo e das vozes instaladas; não é uma cópia exata da voz do personagem. Se nenhuma voz aparecer, verifique **Configurações do Windows → Hora e idioma → Fala** e instale uma voz em português. Feche e abra o navegador após instalar. Algumas vozes do navegador usam rede, mas não exigem chave de voz no Jarviz; vozes marcadas como locais usam o mecanismo do dispositivo.
 
-O SDK oficial documenta `s2.1-pro-free` como gratuito, inclusive sem créditos na conta. Isso não confirma acesso a toda voz da comunidade: esta voz específica exige validação com sua conta. Não há troca automática para modelos pagos. A chave OpenRouter não funciona no Fish Audio. Esta integração não inclui áudio, licença ou autorização do ator/personagem; utilize a voz conforme as condições do serviço.
-
-Ao usar Fish Audio, o texto da resposta também é enviado ao Fish. A reprodução lê até 3000 caracteres por vez; a resposta completa permanece em texto. O tom só é ajustável para vozes do navegador; a velocidade também se aplica à reprodução Fish. **Parar voz** cancela a reprodução/solicitação local, mas não garante que o serviço remoto deixe de contabilizar uma geração já iniciada.
-
-### Alternativa sem API de voz
-
-Selecione **Voz do navegador / Windows**, escolha uma voz instalada e ajuste velocidade e tom. Disponibilidade e qualidade dependem do Windows/navegador. Não é a voz exata do personagem. A voz marcada como “rede” pode enviar texto ao serviço do navegador.
+Clique em **Testar voz** para ouvir o perfil mesmo antes de cadastrar a OpenRouter. **Parar voz** interrompe a reprodução. A chave OpenRouter continua necessária somente para conversar com a IA. Preferências antigas de Fish Audio são ignoradas; essa integração e seus campos foram removidos. Campos Fish de uma configuração antiga são descartados do arquivo no próximo salvamento.
 
 O microfone só é ativado pelo botão e pela permissão do navegador. O reconhecimento pode usar o serviço remoto do navegador. A transcrição aparece no campo e **você envia**; não há escuta permanente nem palavra de ativação. Se não houver suporte, digite normalmente.
 
@@ -53,13 +45,13 @@ Cada conjunto de ações exige aprovação; o modelo não pode aprovar sua próp
 
 ## Dados locais
 
-- Windows: `%APPDATA%\Jarviz\config.json` guarda as chaves e configurações fora do repositório. **As chaves ficam em texto nesse arquivo**, com a proteção da conta/pasta local, sem criptografia própria. Não compartilhe essa pasta. Contas com acesso aos seus arquivos podem lê-las.
+- Windows: `%APPDATA%\Jarviz\config.json` guarda a chave OpenRouter e configurações fora do repositório. **A chave fica em texto nesse arquivo**, com a proteção da conta/pasta local, sem criptografia própria. Não compartilhe essa pasta. Contas com acesso aos seus arquivos podem lê-las.
 - `actions.jsonl`, na mesma pasta, registra horário, nome da ferramenta e decisão, sem conteúdo, caminho, comando ou chave.
 - Conversa somente em memória do servidor; **Limpar conversa** a remove. Provedores externos podem ter suas próprias políticas de retenção. Reiniciar o servidor também limpa a conversa e as aprovações.
 - Preferências de voz/movimento ficam no armazenamento local do navegador; chaves nunca ficam nele.
-- O servidor escuta somente em `127.0.0.1`, verifica origem/Host e exige token de sessão nas APIs. Somente os três arquivos públicos são servidos; código do servidor, `.git` e configurações não são publicados.
+- O servidor escuta somente em `127.0.0.1`, verifica origem/Host e exige token de sessão nas APIs. Somente os arquivos públicos explicitamente permitidos são servidos; código do servidor, `.git` e configurações não são publicados.
 
-Para remover uma chave salva, encerre o Jarviz e remova o campo correspondente em `config.json`, ou remova o arquivo inteiro e configure novamente. Variáveis `OPENROUTER_API_KEY` e `FISH_API_KEY` também são aceitas na primeira configuração; configuração salva tem precedência. `JARVIZ_PORT` permite escolher outra porta (abra o endereço indicado no terminal).
+Para remover uma chave salva, encerre o Jarviz e remova o campo correspondente em `config.json`, ou remova o arquivo inteiro e configure novamente. A variável `OPENROUTER_API_KEY` também é aceita na primeira configuração; configuração salva tem precedência. `JARVIZ_PORT` permite escolher outra porta (abra o endereço indicado no terminal).
 
 ## Verificar
 
@@ -69,11 +61,11 @@ npm run check
 npm test
 ```
 
-Testes Node verificam autenticação, origem, aprovação/recusa/replay, arquivos temporários reais, limites de caminhos e protocolo MessagePack Fish com HTTP controlado. Não usam nem consomem suas APIs.
+Testes Node verificam autenticação, origem, aprovação/recusa/replay, arquivos temporários reais, limites de caminhos e seleção automática de voz. Não usam nem consomem suas APIs.
 
 O teste opcional `python3 tests/browser.py` exige Python, Playwright e Chromium; no Linux usa `/usr/bin/chromium`, ou configure `JARVIZ_CHROMIUM`. Ele inicia um backend com provedor de teste explícito, valida conversa, aprovações, persistência de movimento e layout móvel. Não confirma IA real nem qualidade de voz. Capturas no ambiente de desenvolvimento: `/workspace/jarviz-functional-desktop.png` e `/workspace/jarviz-functional-mobile.png`.
 
-A validação automática foi feita em Linux. Abertura de programas, PowerShell, permissões do microfone e som precisam ser validados no Windows do usuário. Chamadas reais OpenRouter/Fish dependem de chaves e acesso à rede; não são apresentadas como verificadas sem esses requisitos.
+A validação automática foi feita em Linux. Abertura de programas, PowerShell, permissões do microfone e som precisam ser validados no Windows do usuário. Chamadas reais OpenRouter dependem de chaves e acesso à rede; não são apresentadas como verificadas sem esses requisitos.
 
 ## Site público no GitHub Pages
 
@@ -82,3 +74,11 @@ O workflow `.github/workflows/pages.yml` publica somente o HUD e os links de ins
 Ative em **Settings → Pages → Build and deployment → Source → GitHub Actions**. Depois execute o workflow **Publicar prévia Jarviz** em **Actions**, ou faça um novo push em main. O endereço padrão previsto é `https://wll777z.github.io/Jarviz-pessoal/`; confirme o resultado do deploy antes de tratá-lo como publicado.
 
 Para gerar os arquivos estáticos localmente: `node scripts/build-pages.mjs`. A versão completa continua sendo iniciada com `Iniciar-Jarviz.cmd` e não depende do Pages. O iniciador abre o navegador no Windows após o servidor iniciar.
+
+## Diagnosticar ausência de resposta ou áudio
+
+Em Configurações, salve alterações e clique em **Testar IA**. Esse botão faz uma requisição curta ao modelo configurado, sem alterar a conversa ou executar ferramentas, e mostra o resultado dentro da janela. **Chave cadastrada** indica somente que foi salva; não confirma autenticação, cota ou compatibilidade do modelo. O teste usa a solicitação com ferramentas do aplicativo para reproduzir a mesma compatibilidade exigida na conversa.
+
+**Testar voz** mostra progresso e erro dentro da janela, sem precisar de chave de voz. Fora das configurações, erros e a última resposta aparecem junto ao campo de mensagem. Respostas vazias do modelo são tratadas como falha, sem deixar o núcleo preso em “processando”.
+
+Copie somente a mensagem do teste para pedir ajuda; não compartilhe chaves ou config.json. HTTP 401 indica autenticação; 402, cota/créditos; 403, acesso/permissão; 404 pode indicar modelo, disponibilidade ou política de dados, conforme o detalhe retornado pelo serviço; 429 indica limite de uso. Erros de voz não apagam a resposta de texto.

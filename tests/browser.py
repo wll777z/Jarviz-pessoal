@@ -49,20 +49,44 @@ class InterfaceTests(unittest.TestCase):
                 with sync_playwright() as p:
                     browser = p.chromium.launch(executable_path=os.environ.get('JARVIZ_CHROMIUM', '/usr/bin/chromium'), args=['--no-sandbox'])
                     page = browser.new_page(viewport={'width': 1440, 'height': 1000})
+                    page.add_init_script("""
+                      window.__speechCalls = [];
+                      window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
+                      const voices = [
+                        { voiceURI: 'maria', name: 'Microsoft Maria', lang: 'pt-BR', localService: true },
+                        { voiceURI: 'daniel', name: 'Microsoft Daniel', lang: 'pt-BR', localService: true }
+                      ];
+                      Object.defineProperty(window, 'speechSynthesis', { value: {
+                        getVoices: () => voices, addEventListener: () => {}, removeEventListener: () => {}, cancel: () => {},
+                        speak: utterance => {
+                          window.__speechCalls.push({ voice: utterance.voice?.voiceURI, pitch: utterance.pitch, rate: utterance.rate });
+                          utterance.onstart?.(); setTimeout(() => utterance.onend?.(), 100);
+                        }
+                      }});
+                      if (!localStorage.getItem('jarviz-preferences')) localStorage.setItem('jarviz-preferences', JSON.stringify({ provider: 'fish', enabled: true }));
+                    """)
                     errors = []
                     page.on('pageerror', lambda error: errors.append(str(error)))
                     page.goto(f'http://127.0.0.1:{port}')
                     expect(page.locator('#settings-dialog')).to_be_visible()
+                    page.get_by_role('button', name='Testar voz', exact=True).click()
+                    expect(page.locator('#voice-test-message')).to_contain_text('em reprodução')
+                    self.assertEqual(page.locator('#fish-key').count(), 0)
+                    self.assertEqual(page.evaluate('window.__speechCalls[0].voice'), 'daniel')
+                    self.assertLess(page.evaluate('window.__speechCalls[0].pitch'), 1)
                     page.get_by_label('Chave OpenRouter', exact=True).fill('test-only-not-a-real-key')
                     page.get_by_label('Pasta autorizada (caminho completo)').fill(str(root))
                     page.locator('#voice-enabled').uncheck()
                     page.get_by_role('button', name='Salvar', exact=True).click()
                     expect(page.locator('#settings-message')).to_contain_text('Salvo')
                     self.assertEqual(page.locator('#api-key').input_value(), '')
+                    page.get_by_role('button', name='Testar IA', exact=True).click()
+                    expect(page.locator('#ai-test-message')).to_contain_text('respondeu')
                     page.get_by_role('button', name='Fechar', exact=True).click()
                     page.get_by_label('Seu comando').fill('<img src=x onerror=alert(1)>')
                     page.get_by_role('button', name='Enviar comando').click()
                     expect(page.locator('#conversation')).to_contain_text('Olá. Esta resposta veio do provedor de teste.')
+                    expect(page.locator('#latest-answer')).to_contain_text('Olá. Esta resposta veio do provedor de teste.')
                     self.assertEqual(page.locator('#conversation img').count(), 0)
                     expect(page.locator('body')).to_have_attribute('data-state', 'idle')
                     page.get_by_label('Seu comando').fill('Leia o arquivo')
@@ -92,18 +116,9 @@ class InterfaceTests(unittest.TestCase):
                     page.get_by_role('button', name='Configurações e voz').click()
                     expect(page.locator('#settings-dialog')).to_be_visible()
                     self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
-                    page.get_by_label('Serviço de voz').select_option('fish')
-                    page.get_by_label('Chave Fish Audio (opcional)').fill('test-fish-key-not-real')
-                    page.get_by_role('button', name='Salvar', exact=True).click()
-                    expect(page.locator('#settings-message')).to_contain_text('Salvo')
-                    self.assertEqual(page.locator('#fish-key').input_value(), '')
-                    page.evaluate('''window.__played = false; window.__cspViolations = [];
-                      document.addEventListener('securitypolicyviolation', e => window.__cspViolations.push(e.violatedDirective));
-                      const original = window.Audio;
-                      window.Audio = function(...args) { const audio = new original(...args); audio.addEventListener('playing', () => window.__played = true); return audio; };''')
+                    page.get_by_label('Voz', exact=True).select_option('maria')
                     page.get_by_role('button', name='Testar voz', exact=True).click()
-                    page.wait_for_function('() => window.__played === true')
-                    self.assertEqual(page.evaluate('window.__cspViolations'), [])
+                    self.assertEqual(page.evaluate('window.__speechCalls.at(-1).voice'), 'maria')
                     page.get_by_role('button', name='Parar voz', exact=True).evaluate('(button) => button.click()')
                     page.get_by_role('button', name='Fechar', exact=True).click()
                     page.screenshot(path='/workspace/jarviz-functional-mobile.png', full_page=True)
