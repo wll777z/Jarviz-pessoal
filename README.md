@@ -4,7 +4,7 @@ Assistente local para Windows 10/11: HUD original, OpenRouter, fala segmentada, 
 
 ## Iniciar no Windows
 
-1. Instale **Node.js 24 LTS** de https://nodejs.org e extraia o projeto inteiro.
+1. Instale **Node.js 24 LTS atualizado (24.5 ou superior)** de https://nodejs.org e extraia o projeto inteiro.
 2. Execute **Iniciar-Jarviz.cmd**. O navegador abre após o servidor iniciar. Mantenha o terminal aberto.
 3. Em **Configurações e voz**, mantenha sua chave OpenRouter existente ou informe uma chave nova e salve.
 4. Use **Testar IA**, **Consultar capacidades dos modelos**, **Testar pesquisa na internet** e **Testar voz** separadamente.
@@ -133,3 +133,9 @@ Em Configurações, cole a chave e clique em **Conectar automaticamente**. Prefi
 OpenRouter testa `openrouter/free` diretamente. Outros adaptadores cruzam o catálogo ao vivo com IDs anunciados na referência e testam até três candidatos no mesmo serviço. Autenticação, falta de saldo, acesso negado e limites interrompem as tentativas. A chamada de verificação exige suporte às ferramentas do assistente, sem executar nenhuma delas. Não há fallback pago ou entre provedores.
 
 A configuração só é gravada após resposta válida, preservando voz, memória, arquivos e outras chaves. Erros não substituem a chave anterior. Provedores externos ainda exigem confirmação explícita do risco de cobrança; a automação não consegue verificar seu plano/saldo. O repositório de APIs gratuitas não distribui chaves. Não são criadas contas ou credenciais automaticamente.
+
+### Falha de conexão com a IA
+
+Reinicie pelo `Iniciar-Jarviz.cmd` atualizado ou por `npm start`. Ambos habilitam o proxy de ambiente (`HTTP_PROXY`/`HTTPS_PROXY` e `NO_PROXY`) e os certificados confiáveis do sistema no Node 24. Não desabilitamos TLS. A VPN/proxy interno do Opera não configura o servidor Node; proxies automáticos/PAC do Windows também não são importados por estas opções.
+
+Se persistir, execute `Diagnosticar-Conexao.cmd` e copie o resultado. Ele consulta apenas o catálogo público da OpenRouter, sem chave, conversa ou geração de tokens. Os erros de cadastro agora distinguem DNS, certificado, conexão recusada, interrupção e timeout, sem exibir credenciais do proxy. Falhas de rede não repetem a mesma chamada em outro modelo do mesmo domínio. Sucesso no diagnóstico comprova acesso TLS/HTTP, não a validade ou cota da chave.

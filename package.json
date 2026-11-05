@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=24.5.0"
   },
   "scripts": {
-    "start": "node server/server.mjs",
+    "start": "node --use-env-proxy --use-system-ca server/server.mjs",
     "test": "node --test server/*.test.mjs",
     "check": "node scripts/check.mjs",
     "build:pages": "node scripts/build-pages.mjs"

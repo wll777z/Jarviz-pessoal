@@ -1,3 +1,4 @@
+import {networkFailure,providerRequest} from './network.mjs';
 import { providerProfile } from './providers.mjs';
 import {freeCatalog} from './free-catalog.mjs';
 export function isFreeModel(model) { return model === 'openrouter/free' || (typeof model === 'string' && model.endsWith(':free')); }
@@ -20,7 +21,7 @@ export async function complete({ config, messages, tools = [], request = fetch, 
         headers:{ Authorization:`Bearer ${config.key}`, 'Content-Type':'application/json', 'X-Title':'Jarviz Pessoal' },
         body:JSON.stringify({ model, messages, ...(tools.length ? { tools, tool_choice:'auto', ...((config.provider||'openrouter')==='openrouter'?{provider:{require_parameters:true}}:{}) } : {}), max_tokens:diagnostic ? 200 : 1800 }),
       });
-    } catch (error) { lastError = new Error('Falha de rede/tempo em '+profile.name+'. Confira a conexão e o proxy.'); if (i + 1 < candidates.length) continue; throw lastError; }
+    } catch (error) { throw networkFailure(error,profile.name); }
     if (!response.ok) {
       let detail = ''; try { const data = await response.json(); if (typeof data.error?.message === 'string') detail = data.error.message.split(config.key).join('[chave omitida]').replace(/sk-[A-Za-z0-9_-]+/g,'[chave omitida]').slice(0,300); } catch {}
       const labels = { 400:'Modelo/requisição incompatível com ferramentas.',401:'Chave inválida.',402:'Cota/créditos indisponíveis.',403:'Acesso negado ou política de dados incompatível.',404:'Modelo/endpoint indisponível.',429:'Limite de uso atingido.' };
@@ -28,7 +29,7 @@ export async function complete({ config, messages, tools = [], request = fetch, 
       if ([429,500,502,503,504].includes(response.status) && i + 1 < candidates.length) continue;
       throw lastError;
     }
-    let data; try { data = await response.json(); } catch { throw new Error('Resposta JSON inválida da OpenRouter.'); }
+    let data; try { data = await response.json(); } catch (error) { if(error instanceof SyntaxError)throw new Error('Resposta JSON inválida de '+profile.name+'.');throw networkFailure(error,profile.name); }
     const message = data.choices?.[0]?.message;
     if (!message || (typeof message.content !== 'string' || !message.content.trim()) && !message.tool_calls?.length) {
       lastError = new Error('O modelo retornou resposta vazia. Selecione outro modelo gratuito com ferramentas.');
@@ -42,7 +43,7 @@ let modelCache = null;
 export async function modelCapabilities(key, request = fetch, provider='openrouter') {
   const profile=providerProfile(provider);
   if (request === fetch && modelCache?.provider===provider && Date.now()-modelCache.time < 300000) return modelCache.models;
-  const response = await request(profile.base+'/models', { headers: key ? { Authorization:`Bearer ${key}` } : {}, signal:AbortSignal.timeout(15000) });
+  const response = await providerRequest(request,profile.base+'/models', { headers: key ? { Authorization:`Bearer ${key}` } : {}, signal:AbortSignal.timeout(15000) },profile.name);
   if (!response.ok) throw new Error('Não foi possível consultar capacidades dos modelos: HTTP ' + response.status);
   const data = await response.json();
   if (!Array.isArray(data.data)) throw new Error('Catálogo de modelos inválido.');

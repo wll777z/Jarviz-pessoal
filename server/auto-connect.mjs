@@ -1,3 +1,4 @@
+import {providerRequest} from './network.mjs';
 import {complete} from './openrouter.mjs';
 import {providerProfile} from './providers.mjs';
 import {freeCatalog} from './free-catalog.mjs';
@@ -15,7 +16,7 @@ export async function autoConnect({key,provider='auto',billingAccepted=false,req
  if(provider!=='openrouter'&&!billingAccepted)throw new Error('Confirme o risco de cobrança para '+profile.name+'; a cota depende da sua conta.');
  let candidates=['openrouter/free'];
  if(provider!=='openrouter'){
-  const response=await request(profile.base+'/models',{headers:{Authorization:`Bearer ${key}`},signal:AbortSignal.timeout(15000)});
+  const response=await providerRequest(request,profile.base+'/models',{headers:{Authorization:`Bearer ${key}`},signal:AbortSignal.timeout(15000)},profile.name);
   if(!response.ok)throw new Error(`${profile.name} HTTP ${response.status}: não foi possível consultar os modelos desta chave.`);
   const data=await response.json();if(!Array.isArray(data.data))throw new Error('Catálogo ao vivo incompatível. Use o cadastro avançado.');
   const live=new Set(data.data.map(m=>String(m.id||'').replace(/^models\//,'')));
