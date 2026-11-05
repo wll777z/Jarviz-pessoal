@@ -8,6 +8,7 @@ import { tools, executeTool, validateTool } from './tools.mjs';
 import { complete, modelCapabilities, boundedContext, isFreeModel, selectToolsForIntent } from './openrouter.mjs';
 import { createMemory } from './memory.mjs';
 import { synthesizePiper } from './tts.mjs';
+import {autoConnect,detectProvider,normalizeApiKey} from './auto-connect.mjs';
 import { providerKey, providerProfile } from './providers.mjs';
 import { freeCatalog } from './free-catalog.mjs';
 import { validateImage } from './vision.mjs';
@@ -18,7 +19,7 @@ export async function createJarviz(options = {}) {
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
   const configFile = path.join(dataDir, 'config.json');
   let config = { provider:'openrouter',providerKeys:{},providerBillingConsent:{},key: process.env.OPENROUTER_API_KEY || '', model: 'openrouter/free', root: homedir(), allowCommands: false, fallbackModel:'', visionModel:'', audioModel:'', allowPaid:false, webEnabled:true, memoryEnabled:false, retentionDays:30, memoryMaxMB:5, maxToolSteps:6, ttsEngine:'browser', ttsExecutable:'', ttsModel:'', dataDir };
-  try { const saved = JSON.parse(await readFile(configFile, 'utf8')); config = { ...config, ...Object.fromEntries(['provider','providerKeys','providerBillingConsent','key','model','root','allowCommands','fallbackModel','visionModel','audioModel','allowPaid','webEnabled','memoryEnabled','retentionDays','memoryMaxMB','maxToolSteps','ttsEngine','ttsExecutable','ttsModel'].filter(k => k in saved).map(k => [k, saved[k]])), dataDir }; } catch (e) { if (e.code !== 'ENOENT') throw new Error('Configuração local inválida. Corrija ou remova config.json no perfil Jarviz.'); }
+  try { const saved = JSON.parse(await readFile(configFile, 'utf8')); config = { ...config, ...Object.fromEntries(['connectionVerified','provider','providerKeys','providerBillingConsent','key','model','root','allowCommands','fallbackModel','visionModel','audioModel','allowPaid','webEnabled','memoryEnabled','retentionDays','memoryMaxMB','maxToolSteps','ttsEngine','ttsExecutable','ttsModel'].filter(k => k in saved).map(k => [k, saved[k]])), dataDir }; } catch (e) { if (e.code !== 'ENOENT') throw new Error('Configuração local inválida. Corrija ou remova config.json no perfil Jarviz.'); }
   const token = randomBytes(32).toString('hex');
   let messages = [{ role: 'system', content: SYSTEM }];
   let pending = null;
@@ -121,6 +122,22 @@ export async function createJarviz(options = {}) {
     busy = true;
     try {
       const data = await body(req, url.pathname==='/api/chat' ? 6500000 : 100000); requestDeadline=Date.now()+120000;
+      if(url.pathname==='/api/connect'){
+        if(pending)throw new Error('Resolva a aprovação pendente antes de conectar.');
+        const raw=normalizeApiKey(data.key);
+        const requested=data.provider||'auto';if(requested!=='auto')providerProfile(requested);
+        const selected=raw?detectProvider(raw,requested):requested!=='auto'?requested:(config.provider||'openrouter');
+        const key=raw||providerKey({...config,provider:selected});
+        const billingAccepted=data.acknowledgeExternalBilling===true||(key===providerKey({...config,provider:selected})&&config.providerBillingConsent?.[selected]===true);
+        const verified=await autoConnect({key,provider:selected,billingAccepted,request:options.connectFetch||options.openrouterFetch||fetch});
+        const next={...config,provider:selected,model:verified.model,providerKeys:{...config.providerKeys},providerBillingConsent:{...config.providerBillingConsent},connectionVerified:verified};
+        if(selected==='openrouter')next.key=key;else{next.providerKeys[selected]=key;next.providerBillingConsent[selected]=true;}
+        if(selected!==config.provider){next.fallbackModel='';next.visionModel='';next.audioModel='';}
+        const {dataDir:_,...stored}=next;await writeFile(configFile+'.tmp',JSON.stringify(stored),{mode:0o600});await rename(configFile+'.tmp',configFile);
+        const conversationReset=selected!==config.provider||verified.model!==config.model||key!==providerKey(config);config=next;secrets.splice(0,secrets.length,config.key,...Object.values(config.providerKeys||{}));
+        if(conversationReset){messages=[{role:'system',content:SYSTEM}];conversationId=randomUUID();}
+        return send(res,200,{...publicConfig(),conversationReset,message:'Conexão testada e salva. Pode conversar com o Jarviz.'});
+      }
       if (url.pathname === '/api/config') {
         if (pending) return send(res, 409, { error: 'Aprove ou recuse as ações pendentes antes de alterar a configuração.' });
         if (typeof data.model !== 'string' || !/^[a-zA-Z0-9_./:-]{1,150}$/.test(data.model)) throw new Error('Identificador de modelo inválido.');
@@ -136,10 +153,10 @@ export async function createJarviz(options = {}) {
         if(!next.allowPaid && [next.model,next.fallbackModel,next.visionModel,next.audioModel].filter(Boolean).some(model=>provider==='openrouter'?!isFreeModel(model):!advertisedFree.has(model)))throw new Error('Modelo pago não autorizado; use modelos gratuitos.');
         if(data.ttsEngine!==undefined){if(!['browser','piper'].includes(data.ttsEngine))throw new Error('Motor de voz inválido.');next.ttsEngine=data.ttsEngine;}
         for(const key of ['ttsExecutable','ttsModel'])if(data[key]!==undefined){if(typeof data[key]!=='string' || data[key].length>1000 || data[key] && !path.isAbsolute(data[key]))throw new Error('Caminho Piper inválido.');next[key]=data[key];}
+        const conversationReset=next.provider!==config.provider||next.model!==config.model||providerKey(next)!==providerKey(config);if(conversationReset)delete next.connectionVerified;
         const { dataDir: _, ...stored } = next;
         await writeFile(configFile + '.tmp', JSON.stringify(stored), { mode: 0o600 });
         await rename(configFile + '.tmp', configFile);
-        const conversationReset=next.provider!==config.provider||next.model!==config.model||providerKey(next)!==providerKey(config);
         config = next; secrets.splice(0,secrets.length,config.key,...Object.values(config.providerKeys||{})); memory=await createMemory(dataDir,{days:config.retentionDays,maxBytes:config.memoryMaxMB*1024*1024,secrets}); if(conversationReset){messages=[{role:'system',content:SYSTEM}];conversationId=randomUUID();}
         return send(res, 200, {...publicConfig(),conversationReset});
       }

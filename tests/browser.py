@@ -212,6 +212,12 @@ class InterfaceTests(unittest.TestCase):
                     page.locator('#audio-consent').check()
                     page.get_by_role('button', name='Enviar comando').click()
                     expect(page.locator('#audio-panel')).not_to_be_visible()
+                    page.get_by_role('button', name='Configurações e voz').click()
+                    page.get_by_label('Chave de API do provedor', exact=True).fill('sk-or-v1-browser-test')
+                    page.locator('#auto-connect').click()
+                    expect(page.locator('#connect-status')).to_contain_text('Conexão testada e salva')
+                    self.assertEqual(page.locator('#api-key').input_value(), '')
+                    page.get_by_role('button', name='Fechar', exact=True).click()
                     self.assertEqual(errors, [])
                     browser.close()
             finally:

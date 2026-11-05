@@ -125,3 +125,11 @@ Não existe “chave universal”: outras APIs exigem protocolo/adaptador própr
 Consultar modelos/capacidades e Testar IA usam o provedor selecionado. Áudio/visão em outros provedores dependem de metadados compatíveis do serviço; capacidades desconhecidas são recusadas em vez de serem presumidas. Não há fallback entre serviços com envio automático de histórico a terceiros. Os adaptadores foram testados com transporte controlado, não com contas reais dos quatro serviços.
 
 Antes de utilizar Groq, Gemini ou Mistral, é obrigatório confirmar na interface o risco de cobrança conforme o plano da conta. A lista de IDs gratuitos não prova que sua chave esteja numa cota gratuita; o backend bloqueia a chamada sem essa confirmação. A autorização é separada por provedor, e inserir uma nova chave pede nova confirmação. Modelos fora do snapshot ainda exigem a opção adicional de modelos pagos. Nenhuma cota ou saldo foi verificado com contas reais.
+
+## Conexão automática
+
+Em Configurações, cole a chave e clique em **Conectar automaticamente**. Prefixos OpenRouter (`sk-or-`), Groq (`gsk_`) e Gemini (`AIza`) são reconhecidos. Chaves sem prefixo inequívoco exigem escolher o provedor; nunca são testadas em vários serviços. Prefixos e aspas comuns de cópia, como `Bearer`, são removidos localmente.
+
+OpenRouter testa `openrouter/free` diretamente. Outros adaptadores cruzam o catálogo ao vivo com IDs anunciados na referência e testam até três candidatos no mesmo serviço. Autenticação, falta de saldo, acesso negado e limites interrompem as tentativas. A chamada de verificação exige suporte às ferramentas do assistente, sem executar nenhuma delas. Não há fallback pago ou entre provedores.
+
+A configuração só é gravada após resposta válida, preservando voz, memória, arquivos e outras chaves. Erros não substituem a chave anterior. Provedores externos ainda exigem confirmação explícita do risco de cobrança; a automação não consegue verificar seu plano/saldo. O repositório de APIs gratuitas não distribui chaves. Não são criadas contas ou credenciais automaticamente.

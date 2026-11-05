@@ -69,3 +69,9 @@ Adaptadores de texto compatíveis com OpenAI: OpenRouter, Groq, Google Gemini e 
 Revisão independente apontou que constar no catálogo não prova execução gratuita. Corrigido com confirmação obrigatória de possível cobrança para provedores externos antes de inferência; o teste verifica zero chamadas sem confirmação. Inserir outra chave limpa a confirmação na interface. O modelo também segue limitado aos IDs do snapshot, salvo autorização adicional para modelos fora dele. O Jarviz não verifica saldo/tier das contas.
 
 Verificação final: npm run check aprovado, 30 testes Node e 2 cenários Chromium aprovados. Testes usam transporte controlado, sem contas reais dos quatro provedores. Chaves não foram criadas ou embutidas.
+
+## Conexão automática de chaves
+
+Novo fluxo: colar chave → Conectar automaticamente. Prefixos inequívocos escolhem um único provedor; formatos ambíguos exigem escolha explícita. OpenRouter testa o roteador gratuito; outros provedores cruzam catálogo ao vivo e referência, com até três testes curtos no mesmo serviço e consentimento de possível cobrança. Falhas de autenticação/cota/rede interrompem tentativas, sem substituição da configuração anterior. Sucesso salva chave/modelo e preserva preferências não relacionadas. Não cria contas nem obtém chaves do repositório.
+
+Revisão encontrou a seleção ignorada ao reconectar chave vazia; regressão reproduziu e comprovou a correção para recuperar somente a chave do provedor explicitamente escolhido. Validação: sintaxe aprovada, 36 testes Node e 2 cenários Chromium aprovados, usando provedores controlados. Nenhuma chave real foi usada ou incluída no pacote. Testes reais do provedor acontecem no Windows ao clicar em Conectar.
