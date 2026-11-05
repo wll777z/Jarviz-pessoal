@@ -39,7 +39,7 @@ export async function modelCapabilities(key, request = fetch) {
   if (!response.ok) throw new Error('Não foi possível consultar capacidades dos modelos: HTTP ' + response.status);
   const data = await response.json();
   if (!Array.isArray(data.data)) throw new Error('Catálogo de modelos inválido.');
-  const models = data.data.map(m => ({ id:m.id, tools:m.supported_parameters?.includes('tools') || false, vision:m.architecture?.input_modalities?.includes('image') || false }));
+  const models = data.data.map(m => ({ id:m.id, tools:m.supported_parameters?.includes('tools') || false, vision:m.architecture?.input_modalities?.includes('image') || false,audio:m.architecture?.input_modalities?.includes('audio') || false }));
   if (request === fetch) modelCache = { time:Date.now(), models }; return models;
 }
 export function boundedContext(messages, limit = 60000) {

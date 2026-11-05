@@ -101,3 +101,11 @@ python3 tests/browser.py
 Os testes de navegador exigem Playwright e Chromium (`JARVIZ_CHROMIUM` configura o caminho). Provedores externos, captura e Web Speech são simulados nos testes; o adaptador Piper é exercitado com CLI simulado, não uma voz neural real. Veja [validação técnica](docs/validation-3.0.md) para resultados e limitações. Não declarar validado no Windows a partir de testes Linux.
 
 A prévia GitHub Pages é gerada por `npm run build:pages`; ela não executa IA, pesquisa, memória, microfone ou arquivos. O workflow de deploy só roda em main; a versão 3.0 pode ser revisada numa branch sem merge/deploy automático.
+
+## Opera GX, áudio e movimento do núcleo
+
+Permissão de microfone não garante reconhecimento de voz no Opera GX. Para transcrição direta e modo conversação, use Edge/Chrome com serviço de reconhecimento disponível. Falhas agora aparecem junto ao comando e o reconhecimento sem transcrição tem aviso de timeout.
+
+Alternativa: **Gravar áudio → Parar gravação**, ou **Anexar áudio**. O áudio é convertido localmente para WAV mono de até 60 segundos, com prévia. Marque o consentimento e envie. Usa a mesma chave OpenRouter, porém requer um modelo com entrada de áudio, escolhido em Configurações após consultar capacidades. Não há fallback pago automático; disponibilidade gratuita varia. Áudio é removido do contexto após a chamada, não guardado como mídia na memória. A prévia estática não grava áudio.
+
+**Ativar movimento do núcleo** habilita explicitamente as animações mesmo se a preferência do sistema for redução de movimento. O controle de redução continua disponível. Ao falar, os anéis aceleram e o núcleo pulsa; o movimento indica estado de fala, não amplitude fonema a fonema.

@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {encodeWav} from '../audio-input.mjs';
+test('recorded audio encoder produces bounded mono PCM WAV',()=>{const result=Buffer.from(encodeWav(new Float32Array([0,.5,-.5]),24000));assert.equal(result.toString('ascii',0,4),'RIFF');assert.equal(result.readUInt32LE(24),24000);assert.equal(result.length,50);assert.throws(()=>encodeWav(new Float32Array(61),1),/60/);});

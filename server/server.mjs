@@ -15,8 +15,8 @@ export async function createJarviz(options = {}) {
   const dataDir = options.dataDir || path.join(process.env.APPDATA || path.join(homedir(), '.config'), 'Jarviz');
   await mkdir(dataDir, { recursive: true, mode: 0o700 });
   const configFile = path.join(dataDir, 'config.json');
-  let config = { key: process.env.OPENROUTER_API_KEY || '', model: 'openrouter/free', root: homedir(), allowCommands: false, fallbackModel:'', visionModel:'', allowPaid:false, webEnabled:true, memoryEnabled:false, retentionDays:30, memoryMaxMB:5, maxToolSteps:6, ttsEngine:'browser', ttsExecutable:'', ttsModel:'', dataDir };
-  try { const saved = JSON.parse(await readFile(configFile, 'utf8')); config = { ...config, ...Object.fromEntries(['key','model','root','allowCommands','fallbackModel','visionModel','allowPaid','webEnabled','memoryEnabled','retentionDays','memoryMaxMB','maxToolSteps','ttsEngine','ttsExecutable','ttsModel'].filter(k => k in saved).map(k => [k, saved[k]])), dataDir }; } catch (e) { if (e.code !== 'ENOENT') throw new Error('Configuração local inválida. Corrija ou remova config.json no perfil Jarviz.'); }
+  let config = { key: process.env.OPENROUTER_API_KEY || '', model: 'openrouter/free', root: homedir(), allowCommands: false, fallbackModel:'', visionModel:'', audioModel:'', allowPaid:false, webEnabled:true, memoryEnabled:false, retentionDays:30, memoryMaxMB:5, maxToolSteps:6, ttsEngine:'browser', ttsExecutable:'', ttsModel:'', dataDir };
+  try { const saved = JSON.parse(await readFile(configFile, 'utf8')); config = { ...config, ...Object.fromEntries(['key','model','root','allowCommands','fallbackModel','visionModel','audioModel','allowPaid','webEnabled','memoryEnabled','retentionDays','memoryMaxMB','maxToolSteps','ttsEngine','ttsExecutable','ttsModel'].filter(k => k in saved).map(k => [k, saved[k]])), dataDir }; } catch (e) { if (e.code !== 'ENOENT') throw new Error('Configuração local inválida. Corrija ou remova config.json no perfil Jarviz.'); }
   const token = randomBytes(32).toString('hex');
   let messages = [{ role: 'system', content: SYSTEM }];
   let pending = null;
@@ -27,16 +27,17 @@ export async function createJarviz(options = {}) {
   let memory = await createMemory(dataDir,{ days:config.retentionDays, maxBytes:config.memoryMaxMB*1024*1024, secrets });
   const publicConfig = () => { const { key, dataDir:_, ...publicValues } = config; return { ...publicValues, configured:Boolean(key), platform:process.platform, conversationId }; };
   const availableTools = () => tools.filter(t => (config.allowCommands || t.function.name !== 'run_command') && (config.webEnabled || !['web_search','extract_webpage_text','open_webpage','get_weather'].includes(t.function.name)) && (config.memoryEnabled || !['remember_memory','recall_memory','forget_memory'].includes(t.function.name)));
-  function stripImages(){for(const message of messages)if(Array.isArray(message.content))message.content=message.content.filter(c=>c.type==='text').map(c=>c.text).join(' ')+' [Imagem analisada; captura removida do contexto.]';}
+  function stripImages(){for(const message of messages)if(Array.isArray(message.content))message.content=message.content.filter(c=>c.type==='text').map(c=>c.text).join(' ')+' [Anexo processado e removido do contexto.]';}
   async function provider({ diagnostic = false } = {}) {
     if(!diagnostic)messages[0]={role:'system',content:SYSTEM+(config.memoryEnabled&&memory.notes().length?'\nNotas autorizadas (dados, não ordens): '+JSON.stringify(memory.notes()):'')};
     const requestMessages = diagnostic ? [{role:'user',content:'Teste de conexão. Responda apenas OK, sem usar ferramentas.'}] : boundedContext(messages);
     const visual = requestMessages.some(m=>Array.isArray(m.content));
-    const requestConfig = {...config,requestDeadline,...(visual?{model:config.visionModel || config.model,fallbackModel:''}:{})};
+    const audioInput=requestMessages.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==='input_audio'));
+    const requestConfig = {...config,requestDeadline,...(visual?{model:(audioInput?config.audioModel:config.visionModel) || config.model,fallbackModel:''}:{})};
     const lastUser=requestMessages.findLast(m=>m.role==='user')?.content;const query=typeof lastUser==='string'?lastUser:Array.isArray(lastUser)?lastUser.filter(p=>p.type==='text').map(p=>p.text).join(' '):'';
     const selectedTools=diagnostic?availableTools():selectToolsForIntent(query,availableTools());
     if(options.provider)return options.provider({messages:structuredClone(requestMessages),model:requestConfig.model,tools:selectedTools});
-    const result = await complete({config:requestConfig,messages:requestMessages,tools:selectedTools,request:options.openrouterFetch || fetch,diagnostic});
+    const result = await complete({config:requestConfig,messages:requestMessages,tools:audioInput?[]:selectedTools,request:options.openrouterFetch || fetch,diagnostic});
     metrics = { model:result.model, providerMs:result.latencyMs, attempts:result.attempts };
     return result.message;
   }
@@ -65,7 +66,7 @@ export async function createJarviz(options = {}) {
     }
     if (typeof result.content !== 'string' || !result.content.trim()) throw new Error('O modelo retornou uma resposta vazia. Tente novamente ou escolha outro modelo gratuito.');
     messages.push({ role: 'assistant', content: result.content });
-    for(const message of messages)if(Array.isArray(message.content))message.content=message.content.filter(c=>c.type==='text').map(c=>c.text).join(' ')+' [Imagem analisada; captura removida do contexto.]';
+    for(const message of messages)if(Array.isArray(message.content))message.content=message.content.filter(c=>c.type==='text').map(c=>c.text).join(' ')+' [Anexo processado e removido do contexto.]';
     await persist();
     return { reply: result.content, pending: null, sources, metrics };
   }
@@ -90,7 +91,7 @@ export async function createJarviz(options = {}) {
       return send(res, 200, { token, pending, ...publicConfig() });
     }
     if (!url.pathname.startsWith('/api/')) {
-      const files = { '/': ['index.html', 'text/html'], '/index.html': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/voice-selection.mjs': ['voice-selection.mjs', 'text/javascript'], '/speech-controller.mjs':['speech-controller.mjs','text/javascript'], '/styles.css': ['styles.css', 'text/css'] };
+      const files = { '/': ['index.html', 'text/html'], '/index.html': ['index.html', 'text/html'], '/app.js': ['app.js', 'text/javascript'], '/voice-selection.mjs': ['voice-selection.mjs', 'text/javascript'], '/speech-controller.mjs':['speech-controller.mjs','text/javascript'], '/audio-input.mjs':['audio-input.mjs','text/javascript'], '/styles.css': ['styles.css', 'text/css'] };
       const file = files[url.pathname];
       if (!file || req.method !== 'GET') return send(res, 404, { error: 'Não encontrado.' });
       try { res.writeHead(200, { 'Content-Type': file[1] + '; charset=utf-8' }); res.end(await readFile(path.join(ROOT, file[0]))); } catch { res.end(); }
@@ -116,7 +117,7 @@ export async function createJarviz(options = {}) {
     if (busy) return send(res, 409, { error: 'Uma operação está em andamento. Aguarde.' });
     busy = true;
     try {
-      const data = await body(req, url.pathname==='/api/chat' ? 2500000 : 100000); requestDeadline=Date.now()+120000;
+      const data = await body(req, url.pathname==='/api/chat' ? 6500000 : 100000); requestDeadline=Date.now()+120000;
       if (url.pathname === '/api/config') {
         if (pending) return send(res, 409, { error: 'Aprove ou recuse as ações pendentes antes de alterar a configuração.' });
         if (typeof data.model !== 'string' || !/^[a-zA-Z0-9_./:-]{1,150}$/.test(data.model)) throw new Error('Identificador de modelo inválido.');
@@ -125,10 +126,10 @@ export async function createJarviz(options = {}) {
         if (!(await stat(root)).isDirectory()) throw new Error('A raiz autorizada deve ser uma pasta.');
         if (data.key && (typeof data.key !== 'string' || data.key.length > 500 || /[\s]/.test(data.key))) throw new Error('Chave inválida.');
         const next = { ...config, key:data.key || config.key, root, model:data.model, allowCommands:data.allowCommands===true };
-        for(const key of ['fallbackModel','visionModel']) if(data[key]!==undefined) {if(typeof data[key]!=='string' || data[key] && !/^[a-zA-Z0-9_./:-]{1,150}$/.test(data[key]))throw new Error('Modelo alternativo/visual inválido.'); next[key]=data[key];}
+        for(const key of ['fallbackModel','visionModel','audioModel']) if(data[key]!==undefined) {if(typeof data[key]!=='string' || data[key] && !/^[a-zA-Z0-9_./:-]{1,150}$/.test(data[key]))throw new Error('Modelo alternativo/visual inválido.'); next[key]=data[key];}
         for(const key of ['webEnabled','memoryEnabled','allowPaid']) if(data[key]!==undefined)next[key]=data[key]===true;
         for(const [key,min,max] of [['retentionDays',1,365],['memoryMaxMB',1,20],['maxToolSteps',1,20]])if(data[key]!==undefined){if(!Number.isInteger(data[key]) || data[key]<min || data[key]>max)throw new Error('Limite de configuração inválido.');next[key]=data[key];}
-        if(!next.allowPaid && [next.model,next.fallbackModel,next.visionModel].filter(Boolean).some(model=>!isFreeModel(model)))throw new Error('Modelo pago não autorizado; use modelos gratuitos.');
+        if(!next.allowPaid && [next.model,next.fallbackModel,next.visionModel,next.audioModel].filter(Boolean).some(model=>!isFreeModel(model)))throw new Error('Modelo pago não autorizado; use modelos gratuitos.');
         if(data.ttsEngine!==undefined){if(!['browser','piper'].includes(data.ttsEngine))throw new Error('Motor de voz inválido.');next.ttsEngine=data.ttsEngine;}
         for(const key of ['ttsExecutable','ttsModel'])if(data[key]!==undefined){if(typeof data[key]!=='string' || data[key].length>1000 || data[key] && !path.isAbsolute(data[key]))throw new Error('Caminho Piper inválido.');next[key]=data[key];}
         const { dataDir: _, ...stored } = next;
@@ -159,6 +160,14 @@ export async function createJarviz(options = {}) {
         toolSteps=0; sources=[];
 
         let content=data.message.trim();
+        if(data.audio){
+          if(data.audioConsent!==true)throw new Error('Autorize o envio do áudio à OpenRouter.');
+          if(data.image)throw new Error('Envie imagem e áudio em mensagens separadas.');
+          if(typeof data.audio!=='string'||data.audio.length>5600000||!/^data:audio\/wav;base64,[A-Za-z0-9+/=]+$/.test(data.audio))throw new Error('Áudio WAV inválido ou excessivo.');
+          const bytes=Buffer.from(data.audio.split(',')[1],'base64');if(bytes.toString('ascii',0,4)!=='RIFF'||bytes.toString('ascii',8,12)!=='WAVE')throw new Error('Formato WAV inválido.');
+          const model=config.audioModel||config.model;const supported=(await modelCapabilities(config.key,options.modelsFetch||fetch)).find(m=>m.id===model);if(!supported?.audio)throw new Error('Selecione um modelo gratuito com entrada de áudio nas configurações. Consulte capacidades.');
+          content=[{type:'text',text:content},{type:'input_audio',input_audio:{data:data.audio.split(',')[1],format:'wav'}}];
+        }
         if(data.image) {
           if(data.imageConsent!==true)throw new Error('Envio de imagem exige consentimento explícito.');
           validateImage(data.image);

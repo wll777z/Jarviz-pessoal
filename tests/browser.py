@@ -51,6 +51,7 @@ class InterfaceTests(unittest.TestCase):
                     page = browser.new_page(viewport={'width': 1440, 'height': 1000})
                     page.add_init_script("""
                       window.__speechCalls = [];
+                      window.MediaRecorder=class { constructor(){this.state='inactive';this.mimeType='audio/webm';}start(){this.state='recording';}stop(){this.state='inactive';queueMicrotask(()=>this.onstop?.());} };
                       window.SpeechRecognition = class {
                         constructor() { window.__recognizer = this; }
                         start() { window.__recognitionStarts = (window.__recognitionStarts || 0) + 1; this.onstart?.(); }
@@ -58,6 +59,7 @@ class InterfaceTests(unittest.TestCase):
                         abort() { this.onend?.(); }
                       };
                       Object.defineProperty(navigator, 'mediaDevices', { value: {
+                        getUserMedia: async () => { window.__gumCalls=(window.__gumCalls||0)+1;await new Promise(resolve=>setTimeout(resolve,100));return {getTracks:()=>[{stop:()=>window.__trackStops=(window.__trackStops||0)+1}]}; },
                         getDisplayMedia: async () => {
                           const canvas = document.createElement('canvas'); canvas.width = 120; canvas.height = 80;
                           canvas.getContext('2d').fillRect(0,0,120,80);
@@ -92,6 +94,7 @@ class InterfaceTests(unittest.TestCase):
                     page.locator('#voice-enabled').uncheck()
                     page.locator('#memory-enabled').check()
                     page.locator('#vision-model').fill('test-vision:free')
+                    page.locator('#audio-model').fill('test-audio:free')
                     page.get_by_role('button', name='Salvar', exact=True).click()
                     expect(page.locator('#settings-message')).to_contain_text('Salvo')
                     self.assertEqual(page.locator('#api-key').input_value(), '')
@@ -177,15 +180,33 @@ class InterfaceTests(unittest.TestCase):
                     page.get_by_role('button', name='Salvar', exact=True).click()
                     expect(page.locator('#settings-message')).to_contain_text('Salvo')
                     page.get_by_role('button', name='Fechar', exact=True).click()
+                    page.emulate_media(reduced_motion='reduce')
+                    page.locator('#enable-motion').click()
                     page.evaluate('window.__holdSpeech = true')
                     page.get_by_role('button', name='Modo conversação', exact=True).click()
                     page.evaluate("""window.__expectedStarts = window.__recognitionStarts + 1;
                       const result = [{ transcript: 'Olá com voz' }]; result.isFinal = true;
                       window.__recognizer.onresult({ results: [result] }); window.__recognizer.onend();""")
                     expect(page.locator('body')).to_have_attribute('data-state', 'speaking')
+                    self.assertNotEqual(page.locator('.orbit-inner').evaluate('(e) => getComputedStyle(e).animationName'), 'none')
+                    self.assertNotEqual(page.locator('.orb').evaluate('(e) => getComputedStyle(e).animationName'), 'none')
                     page.get_by_role('button', name='Parar voz', exact=True).click()
                     page.wait_for_function('() => window.__recognitionStarts >= window.__expectedStarts', timeout=5000)
                     page.get_by_role('button', name='Encerrar conversação', exact=True).click()
+                    page.locator('#record-button').evaluate('(button)=>{button.click();button.click();}')
+                    expect(page.locator('#record-button')).to_have_text('Parar gravação')
+                    self.assertEqual(page.evaluate('window.__gumCalls'),1)
+                    page.locator('#record-button').click()
+                    expect(page.locator('#record-button')).to_have_text('Gravar áudio')
+                    self.assertGreater(page.evaluate('window.__trackStops'),0)
+                    page.locator('#audio-upload').set_input_files(str(ROOT / 'tests/fixtures/audio-test.wav'))
+                    expect(page.locator('#audio-panel')).to_be_visible()
+                    page.locator('#command').fill('')
+                    page.get_by_role('button', name='Enviar comando').click()
+                    expect(page.locator('#request-error')).to_contain_text('Autorize')
+                    page.locator('#audio-consent').check()
+                    page.get_by_role('button', name='Enviar comando').click()
+                    expect(page.locator('#audio-panel')).not_to_be_visible()
                     self.assertEqual(errors, [])
                     browser.close()
             finally:
