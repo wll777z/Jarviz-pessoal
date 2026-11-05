@@ -59,3 +59,13 @@ Consulte VALIDAR-WINDOWS.md. Permanecem não executados aqui: som real e vozes i
 
 ## Correção posterior — Opera GX e núcleo
 Adicionados gravação explícita, anexo/normalização WAV, prévia e consentimento, modelo com entrada de áudio via mesma chave OpenRouter e descarte de mídia do contexto. Reconhecimento sem resultado mostra aviso; inicialização concorrente do gravador é bloqueada e reset encerra stream/anexo. Movimento do núcleo ganhou override explícito da redução de movimento e pulsação mais visível ao falar. Validação: 26 testes Node e 2 cenários Chromium aprovados, incluindo WAV sintético e gravação simulada. Microfone físico no Opera GX e API real de áudio não foram testados aqui; compatibilidade e gratuidade do modelo de áudio precisam ser verificadas na conta do usuário.
+
+## Catálogo gratuito e chaves por provedor
+
+Fonte integrada: mnfst/awesome-free-llm-apis, revisão 095e35e10f33d7ba32ebb86e1dd0ff604dea9c1a, snapshot com 15 provedores e licença CC0 preservada. O catálogo é consultável nas configurações e AGENTS.md registra seu uso como referência futura. Não executa código da fonte nem fornece credenciais públicas.
+
+Adaptadores de texto compatíveis com OpenAI: OpenRouter, Groq, Google Gemini e Mistral. Endpoints fixos, chaves separadas, chave OpenRouter anterior preservada e nunca reutilizada em outro serviço. Provedores restantes exigem adaptadores próprios; “qualquer chave” não significa um protocolo universal. Áudio e visão continuam dependentes de capacidades verificáveis do provedor.
+
+Revisão independente apontou que constar no catálogo não prova execução gratuita. Corrigido com confirmação obrigatória de possível cobrança para provedores externos antes de inferência; o teste verifica zero chamadas sem confirmação. Inserir outra chave limpa a confirmação na interface. O modelo também segue limitado aos IDs do snapshot, salvo autorização adicional para modelos fora dele. O Jarviz não verifica saldo/tier das contas.
+
+Verificação final: npm run check aprovado, 30 testes Node e 2 cenários Chromium aprovados. Testes usam transporte controlado, sem contas reais dos quatro provedores. Chaves não foram criadas ou embutidas.

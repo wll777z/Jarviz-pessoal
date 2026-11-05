@@ -181,7 +181,7 @@ $('#voice-test').addEventListener('click', () => {
   readVoicePreferences(); speak('Boa noite. Sou o Jarviz, seu assistente pessoal. Sistemas prontos para começar.', true);
 });
 $('#ai-test').addEventListener('click', async () => {
-  if ($('#api-key').value.trim() || $('#model').value.trim() !== serverConfig?.model) { $('#ai-test-message').textContent = 'Salve a chave e o modelo antes de testar a IA.'; return; }
+  if ($('#api-key').value.trim() || $('#model').value.trim() !== serverConfig?.model || $('#provider').value!==(serverConfig?.provider||'openrouter')) { $('#ai-test-message').textContent = 'Salve a chave e o modelo antes de testar a IA.'; return; }
   $('#ai-test').disabled = true; $('#ai-test-message').textContent = 'Testando a conexão com a OpenRouter…';
   try { const result = await api('test-ai', {}); $('#ai-test-message').textContent = result.message; $('#ai-status').textContent = 'Conexão verificada'; }
   catch (error) { $('#ai-test-message').textContent = error.message; $('#ai-status').textContent = 'Falha no teste'; }
@@ -200,6 +200,7 @@ function fillConfig(config) {
   for(const [id,key] of [['fallback-model','fallbackModel'],['vision-model','visionModel'],['audio-model','audioModel'],['tts-executable','ttsExecutable'],['tts-model','ttsModel']])$('#'+id).value=config[key] || '';
   $('#web-enabled').checked=config.webEnabled!==false;$('#memory-enabled').checked=config.memoryEnabled===true;$('#allow-paid').checked=config.allowPaid===true;$('#retention-days').value=config.retentionDays || 30;$('#memory-max-mb').value=config.memoryMaxMB || 5;$('#max-tool-steps').value=config.maxToolSteps || 6;$('#tts-engine').value=config.ttsEngine || 'browser';preferences.engine=config.ttsEngine || 'browser';
   $('#model').value = config.model; $('#root-folder').value = config.root; $('#allow-commands').checked = config.allowCommands;
+  $('#provider').value=config.provider||'openrouter';$('#external-billing-consent').checked=config.providerBillingConsent?.[config.provider]===true;
   $('#api-key').placeholder = config.configured ? 'Chave já configurada; vazio mantém a atual' : 'Cole sua chave OpenRouter';
   $('#ai-status').textContent = config.configured ? 'Configurado · não verificado' : 'Não configurado';
 }
@@ -208,7 +209,7 @@ $('#settings-form').addEventListener('submit', async event => {
   const button = event.submitter; if (button) button.disabled = true;
   $('#settings-message').textContent = 'Salvando…';
   try {
-    const config = await api('config', { key: $('#api-key').value.trim(), model: $('#model').value.trim(), root: $('#root-folder').value.trim(), allowCommands: $('#allow-commands').checked,fallbackModel:$('#fallback-model').value.trim(),visionModel:$('#vision-model').value.trim(),audioModel:$('#audio-model').value.trim(),allowPaid:$('#allow-paid').checked,webEnabled:$('#web-enabled').checked,memoryEnabled:$('#memory-enabled').checked,retentionDays:Number($('#retention-days').value),memoryMaxMB:Number($('#memory-max-mb').value),maxToolSteps:Number($('#max-tool-steps').value),ttsEngine:$('#tts-engine').value,ttsExecutable:$('#tts-executable').value.trim(),ttsModel:$('#tts-model').value.trim() });
+    const config = await api('config', { key: $('#api-key').value.trim(),provider:$('#provider').value,acknowledgeExternalBilling:$('#external-billing-consent').checked, model: $('#model').value.trim(), root: $('#root-folder').value.trim(), allowCommands: $('#allow-commands').checked,fallbackModel:$('#fallback-model').value.trim(),visionModel:$('#vision-model').value.trim(),audioModel:$('#audio-model').value.trim(),allowPaid:$('#allow-paid').checked,webEnabled:$('#web-enabled').checked,memoryEnabled:$('#memory-enabled').checked,retentionDays:Number($('#retention-days').value),memoryMaxMB:Number($('#memory-max-mb').value),maxToolSteps:Number($('#max-tool-steps').value),ttsEngine:$('#tts-engine').value,ttsExecutable:$('#tts-executable').value.trim(),ttsModel:$('#tts-model').value.trim() });
     $('#api-key').value = ''; readVoicePreferences(); fillConfig(config);
     $('#settings-message').textContent = 'Salvo neste computador. A conexão será testada ao enviar uma mensagem.';
     addEvent('CONFIGURAÇÃO', 'Configurações salvas.', 'A conversa do servidor foi reiniciada para aplicar o modelo e a pasta autorizada.');
@@ -294,3 +295,27 @@ try {
   addEvent('CONEXÃO', 'Inicie o servidor local.', 'No Windows, execute Iniciar-Jarviz.cmd e abra o endereço 127.0.0.1 indicado no terminal.');
 }
 controls();
+
+let freeProviders=[];
+function renderFreeCatalog(){
+ const query=$('#free-catalog-search').value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();const modality=$('#free-catalog-modality').value;const results=$('#free-catalog-results');results.replaceChildren();
+ for(const provider of freeProviders){
+  const models=provider.models.filter(model=>(modality==='all'||model[modality]===true)&&(!query||(provider.name+' '+model.id+' '+model.name).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(query)));
+  if(!models.length)continue;const card=document.createElement('section');card.className='catalog-card';const title=document.createElement('h3');title.textContent=provider.name+(provider.integrated?(provider.adapter==='openrouter'?' · OpenRouter integrada':' · adaptador disponível'):' · referência externa');const description=document.createElement('p');description.textContent=provider.description;const link=document.createElement('a');link.href=provider.url;link.target='_blank';link.rel='noopener noreferrer';link.textContent='Site oficial / obter chave ↗';card.append(title,description,link);
+  for(const model of models){const row=document.createElement('div');const text=document.createElement('p');text.textContent=model.id+' · '+model.modality+' · '+(model.rateLimit||'Consulte os limites oficiais');row.append(text);
+   if(provider.integrated&&(provider.adapter!=='openrouter'||model.id==='openrouter/free'||model.id.endsWith(':free'))){for(const [label,field] of [['Usar como principal','model'],...(model.audio?[['Usar para áudio','audio-model']]:[]),...(model.vision?[['Usar para visão','vision-model']]:[])]){const button=document.createElement('button');button.type='button';button.textContent=label;button.addEventListener('click',()=>{if(provider.adapter&&$('#provider').value!==provider.adapter){$('#provider').value=provider.adapter;$('#external-billing-consent').checked=serverConfig?.providerBillingConsent?.[provider.adapter]===true;$('#api-key').value='';$('#api-key').placeholder=serverConfig?.configuredProviders?.[provider.adapter]?'Chave própria já cadastrada; vazio mantém a atual':'Cadastre uma chave própria de '+provider.name;$('#model').value=model.id;$('#fallback-model').value='';$('#vision-model').value='';$('#audio-model').value='';}$('#'+field).value=model.id;$('#free-catalog-dialog').close();$('#settings-message').textContent='Modelo selecionado. Salve e consulte as capacidades ao vivo antes de usar.';});row.append(button);}}
+   card.append(row);
+  }results.append(card);
+ }if(!results.children.length)results.textContent='Nenhuma opção explicitamente compatível no snapshot. Consulte os provedores para dados atuais.';
+}
+$('#free-catalog-button').addEventListener('click',async()=>{$('#free-catalog-dialog').showModal();$('#free-catalog-status').textContent='Carregando referência local…';try{const catalog=await api('free-catalog');freeProviders=catalog.providers;$('#free-catalog-status').textContent=catalog.source+' · fonte atualizada em '+catalog.lastUpdated+' · revisão '+catalog.commit.slice(0,7)+'. '+catalog.notice;renderFreeCatalog();}catch(error){$('#free-catalog-status').textContent=error.message;}});
+$('#free-catalog-search').addEventListener('input',renderFreeCatalog);$('#free-catalog-modality').addEventListener('change',renderFreeCatalog);$('#close-free-catalog').addEventListener('click',()=>$('#free-catalog-dialog').close());
+
+$('#provider').addEventListener('change',async()=>{
+ $('#api-key').value='';const id=$('#provider').value;$('#external-billing-consent').checked=serverConfig?.providerBillingConsent?.[id]===true;const names={openrouter:'OpenRouter',groq:'Groq',gemini:'Google Gemini',mistral:'Mistral AI'};
+ $('#api-key').placeholder=serverConfig?.configuredProviders?.[id]?'Chave própria já cadastrada; vazio mantém a atual':'Cole uma chave própria de '+names[id];
+ $('#fallback-model').value='';$('#vision-model').value='';$('#audio-model').value='';$('#models-status').textContent='Salve o provedor e sua chave antes de testar. A chave de outro serviço não será reutilizada.';
+ try{const catalogue=await api('free-catalog');const first=catalogue.providers.find(p=>p.name===names[id])?.models[0];$('#model').value=id==='openrouter'?'openrouter/free':first?.id||'';}catch{$('#model').value='';}
+});
+
+$('#api-key').addEventListener('input',()=>{if($('#provider').value!=='openrouter')$('#external-billing-consent').checked=false;});

@@ -109,3 +109,19 @@ Permissão de microfone não garante reconhecimento de voz no Opera GX. Para tra
 Alternativa: **Gravar áudio → Parar gravação**, ou **Anexar áudio**. O áudio é convertido localmente para WAV mono de até 60 segundos, com prévia. Marque o consentimento e envie. Usa a mesma chave OpenRouter, porém requer um modelo com entrada de áudio, escolhido em Configurações após consultar capacidades. Não há fallback pago automático; disponibilidade gratuita varia. Áudio é removido do contexto após a chamada, não guardado como mídia na memória. A prévia estática não grava áudio.
 
 **Ativar movimento do núcleo** habilita explicitamente as animações mesmo se a preferência do sistema for redução de movimento. O controle de redução continua disponível. Ao falar, os anéis aceleram e o núcleo pulsa; o movimento indica estado de fala, não amplitude fonema a fonema.
+
+## Referência preferencial de APIs gratuitas
+
+O catálogo [mnfst/awesome-free-llm-apis](https://github.com/mnfst/awesome-free-llm-apis) foi incorporado como snapshot em `data/free-llm-catalog.json`, com revisão e data originais. Licença CC0 preservada em `docs/third-party/`. O botão **Catálogo de APIs gratuitas** nas configurações permite filtrar provedores/modelos e modalidades anunciadas, consultar limites declarados e abrir o site oficial. Modelos OpenRouter gratuitos podem preencher um campo escolhido pelo usuário, sem alterar a chave; ainda exigem salvar e verificar capacidades ao vivo. Provedores sem adaptador explícito são referências, não integrações operacionais. A lista cobre principalmente inferência de texto; modalidade anunciada não garante áudio gratuito na conta.
+
+`AGENTS.md` registra a preferência por essa referência para trabalhos futuros neste projeto. Atualização do snapshot é explícita pelo script `scripts/import-free-catalog.mjs`; não há atualização, cadastro ou envio de chave a terceiros em segundo plano.
+
+## Cadastro de chaves por provedor
+
+Adaptadores atuais: **OpenRouter, Groq, Google Gemini (endpoint OpenAI-compatible) e Mistral AI**. Selecione o provedor, informe a chave da sua própria conta, escolha um modelo e salve. A chave OpenRouter antiga é preservada. Cada serviço tem chave separada, armazenada somente no perfil local. Trocar de serviço não reutiliza uma chave de outro provedor; as credenciais nunca são enviadas a URLs fornecidas pelo modelo ou pelo catálogo. Endpoints são fixos no servidor.
+
+Não existe “chave universal”: outras APIs exigem protocolo/adaptador próprio. Não incluímos chaves públicas ou credenciais compartilhadas. A lista comunitária anuncia cotas gratuitas, mas não pode impedir cobrança em uma conta com plano pago ou garantir disponibilidade; verifique limites e privacidade oficiais. Para os novos provedores, o modo sem autorização de modelos pagos restringe os IDs aos anunciados no snapshot; isso não é uma verificação do saldo ou plano da conta.
+
+Consultar modelos/capacidades e Testar IA usam o provedor selecionado. Áudio/visão em outros provedores dependem de metadados compatíveis do serviço; capacidades desconhecidas são recusadas em vez de serem presumidas. Não há fallback entre serviços com envio automático de histórico a terceiros. Os adaptadores foram testados com transporte controlado, não com contas reais dos quatro serviços.
+
+Antes de utilizar Groq, Gemini ou Mistral, é obrigatório confirmar na interface o risco de cobrança conforme o plano da conta. A lista de IDs gratuitos não prova que sua chave esteja numa cota gratuita; o backend bloqueia a chamada sem essa confirmação. A autorização é separada por provedor, e inserir uma nova chave pede nova confirmação. Modelos fora do snapshot ainda exigem a opção adicional de modelos pagos. Nenhuma cota ou saldo foi verificado com contas reais.

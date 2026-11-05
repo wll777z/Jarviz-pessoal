@@ -1,24 +1,30 @@
+import { providerProfile } from './providers.mjs';
+import {freeCatalog} from './free-catalog.mjs';
 export function isFreeModel(model) { return model === 'openrouter/free' || (typeof model === 'string' && model.endsWith(':free')); }
 export async function complete({ config, messages, tools = [], request = fetch, diagnostic = false }) {
+  const profile=providerProfile(config.provider);
+  if((config.provider||'openrouter')!=='openrouter'&&!config.externalBillingAccepted)throw new Error('Confirme explicitamente o risco de cobrança do provedor externo antes de usar sua chave.');
+  const catalogue=(config.provider&&config.provider!=='openrouter'&&!config.allowPaid)?await freeCatalog():null;
+  const allowed=new Set(catalogue?.providers.find(p=>p.name===profile.name)?.models.map(m=>m.id)||[]);
   const candidates = [...new Set([config.model, config.fallbackModel].filter(Boolean))];
-  for (const model of candidates) if (!config.allowPaid && !isFreeModel(model)) throw new Error('Modelo pago não autorizado. Selecione openrouter/free ou um modelo :free.');
-  if (!config.key) throw new Error('Cadastre sua chave OpenRouter.');
+  for (const model of candidates) if (!config.allowPaid && !((config.provider||'openrouter')==='openrouter'?isFreeModel(model):allowed.has(model))) throw new Error('Modelo pago não autorizado. Selecione openrouter/free ou um modelo :free.');
+  if (!config.key) throw new Error('Cadastre a chave do provedor selecionado.');
   const started = performance.now(); let lastError;
   for (let i = 0; i < candidates.length; i++) {
     const remaining = config.requestDeadline ? config.requestDeadline-Date.now() : 45000;
     if(remaining<=0)throw new Error('Tempo total da solicitação excedido. Tente uma tarefa menor.');
     const model = candidates[i]; let response;
     try {
-      response = await request('https://openrouter.ai/api/v1/chat/completions', {
+      response = await request(profile.base+'/chat/completions', {
         method:'POST', signal:AbortSignal.timeout(Math.min(45000,remaining)),
         headers:{ Authorization:`Bearer ${config.key}`, 'Content-Type':'application/json', 'X-Title':'Jarviz Pessoal' },
-        body:JSON.stringify({ model, messages, ...(tools.length ? { tools, tool_choice:'auto', provider:{ require_parameters:true } } : {}), max_tokens:diagnostic ? 200 : 1800 }),
+        body:JSON.stringify({ model, messages, ...(tools.length ? { tools, tool_choice:'auto', ...((config.provider||'openrouter')==='openrouter'?{provider:{require_parameters:true}}:{}) } : {}), max_tokens:diagnostic ? 200 : 1800 }),
       });
-    } catch (error) { lastError = new Error('Falha de rede/tempo na OpenRouter. Confira a conexão e o proxy.'); if (i + 1 < candidates.length) continue; throw lastError; }
+    } catch (error) { lastError = new Error('Falha de rede/tempo em '+profile.name+'. Confira a conexão e o proxy.'); if (i + 1 < candidates.length) continue; throw lastError; }
     if (!response.ok) {
       let detail = ''; try { const data = await response.json(); if (typeof data.error?.message === 'string') detail = data.error.message.split(config.key).join('[chave omitida]').replace(/sk-[A-Za-z0-9_-]+/g,'[chave omitida]').slice(0,300); } catch {}
       const labels = { 400:'Modelo/requisição incompatível com ferramentas.',401:'Chave inválida.',402:'Cota/créditos indisponíveis.',403:'Acesso negado ou política de dados incompatível.',404:'Modelo/endpoint indisponível.',429:'Limite de uso atingido.' };
-      lastError = new Error(`OpenRouter HTTP ${response.status}: ${labels[response.status] || 'Serviço indisponível.'}${detail ? ' Detalhe do serviço: ' + detail : ''}`);
+      lastError = new Error(`${profile.name} HTTP ${response.status}: ${labels[response.status] || 'Serviço indisponível.'}${detail ? ' Detalhe do serviço: ' + detail : ''}`);
       if ([429,500,502,503,504].includes(response.status) && i + 1 < candidates.length) continue;
       throw lastError;
     }
@@ -33,14 +39,15 @@ export async function complete({ config, messages, tools = [], request = fetch, 
   throw lastError || new Error('Nenhum modelo configurado.');
 }
 let modelCache = null;
-export async function modelCapabilities(key, request = fetch) {
-  if (request === fetch && modelCache && Date.now()-modelCache.time < 300000) return modelCache.models;
-  const response = await request('https://openrouter.ai/api/v1/models', { headers: key ? { Authorization:`Bearer ${key}` } : {}, signal:AbortSignal.timeout(15000) });
+export async function modelCapabilities(key, request = fetch, provider='openrouter') {
+  const profile=providerProfile(provider);
+  if (request === fetch && modelCache?.provider===provider && Date.now()-modelCache.time < 300000) return modelCache.models;
+  const response = await request(profile.base+'/models', { headers: key ? { Authorization:`Bearer ${key}` } : {}, signal:AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error('Não foi possível consultar capacidades dos modelos: HTTP ' + response.status);
   const data = await response.json();
   if (!Array.isArray(data.data)) throw new Error('Catálogo de modelos inválido.');
   const models = data.data.map(m => ({ id:m.id, tools:m.supported_parameters?.includes('tools') || false, vision:m.architecture?.input_modalities?.includes('image') || false,audio:m.architecture?.input_modalities?.includes('audio') || false }));
-  if (request === fetch) modelCache = { time:Date.now(), models }; return models;
+  if (request === fetch) modelCache = { time:Date.now(), models, provider }; return models;
 }
 export function boundedContext(messages, limit = 60000) {
   if (JSON.stringify(messages).length <= limit) return messages;
