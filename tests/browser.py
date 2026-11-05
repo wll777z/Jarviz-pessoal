@@ -51,6 +51,19 @@ class InterfaceTests(unittest.TestCase):
                     page = browser.new_page(viewport={'width': 1440, 'height': 1000})
                     page.add_init_script("""
                       window.__speechCalls = [];
+                      window.SpeechRecognition = class {
+                        constructor() { window.__recognizer = this; }
+                        start() { window.__recognitionStarts = (window.__recognitionStarts || 0) + 1; this.onstart?.(); }
+                        stop() { this.onend?.(); }
+                        abort() { this.onend?.(); }
+                      };
+                      Object.defineProperty(navigator, 'mediaDevices', { value: {
+                        getDisplayMedia: async () => {
+                          const canvas = document.createElement('canvas'); canvas.width = 120; canvas.height = 80;
+                          canvas.getContext('2d').fillRect(0,0,120,80);
+                          window.__captureStream = canvas.captureStream(1); return window.__captureStream;
+                        }
+                      }});
                       window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
                       const voices = [
                         { voiceURI: 'maria', name: 'Microsoft Maria', lang: 'pt-BR', localService: true },
@@ -60,7 +73,7 @@ class InterfaceTests(unittest.TestCase):
                         getVoices: () => voices, addEventListener: () => {}, removeEventListener: () => {}, cancel: () => {},
                         speak: utterance => {
                           window.__speechCalls.push({ voice: utterance.voice?.voiceURI, pitch: utterance.pitch, rate: utterance.rate });
-                          utterance.onstart?.(); setTimeout(() => utterance.onend?.(), 100);
+                          utterance.onstart?.(); if (!window.__holdSpeech) setTimeout(() => utterance.onend?.(), 100);
                         }
                       }});
                       if (!localStorage.getItem('jarviz-preferences')) localStorage.setItem('jarviz-preferences', JSON.stringify({ provider: 'fish', enabled: true }));
@@ -77,6 +90,8 @@ class InterfaceTests(unittest.TestCase):
                     page.get_by_label('Chave OpenRouter', exact=True).fill('test-only-not-a-real-key')
                     page.get_by_label('Pasta autorizada (caminho completo)').fill(str(root))
                     page.locator('#voice-enabled').uncheck()
+                    page.locator('#memory-enabled').check()
+                    page.locator('#vision-model').fill('test-vision:free')
                     page.get_by_role('button', name='Salvar', exact=True).click()
                     expect(page.locator('#settings-message')).to_contain_text('Salvo')
                     self.assertEqual(page.locator('#api-key').input_value(), '')
@@ -122,6 +137,55 @@ class InterfaceTests(unittest.TestCase):
                     page.get_by_role('button', name='Parar voz', exact=True).evaluate('(button) => button.click()')
                     page.get_by_role('button', name='Fechar', exact=True).click()
                     page.screenshot(path='/workspace/jarviz-functional-mobile.png', full_page=True)
+                    page.on('dialog', lambda dialog: dialog.accept())
+                    page.get_by_role('button', name='Histórico e memória').click()
+                    page.locator('#memory-note').fill('Prefiro usar VS Code nos projetos.')
+                    page.get_by_role('button', name='Guardar nota', exact=True).click()
+                    expect(page.locator('#memory-list')).to_contain_text('VS Code')
+                    self.assertGreater(page.locator('#history-list button').count(), 0)
+                    page.get_by_role('button', name='Esquecer', exact=True).click()
+                    expect(page.locator('#memory-list')).not_to_contain_text('VS Code')
+                    page.locator('#close-memory').click()
+                    page.get_by_role('button', name='Capturar tela', exact=True).click()
+                    expect(page.locator('#image-panel')).to_be_visible()
+                    self.assertTrue(page.evaluate("window.__captureStream.getTracks().every(t => t.readyState === 'ended')"))
+                    page.get_by_label('Seu comando').fill('Descreva a imagem de teste')
+                    page.get_by_role('button', name='Enviar comando').click()
+                    expect(page.locator('#request-error')).to_contain_text('Autorize')
+                    page.locator('#vision-consent').check()
+                    page.get_by_role('button', name='Enviar comando').click()
+                    expect(page.locator('#image-panel')).not_to_be_visible()
+                    page.get_by_role('button', name='Modo conversação', exact=True).click()
+                    expect(page.locator('#conversation-button')).to_have_attribute('aria-pressed', 'true')
+                    page.evaluate("""const result = [{ transcript: 'Olá por voz' }]; result.isFinal = true;
+                      window.__recognizer.onresult({ results: [result] }); window.__recognizer.onend();""")
+                    expect(page.locator('#conversation')).to_contain_text('Olá por voz')
+                    page.get_by_role('button', name='Encerrar conversação', exact=True).click()
+                    expect(page.locator('#conversation-button')).to_have_attribute('aria-pressed', 'false')
+                    expect(page.locator('body')).to_have_attribute('data-state', 'idle')
+                    page.get_by_role('button', name='Modo conversação', exact=True).click()
+                    page.evaluate("""window.__expectedStarts = window.__recognitionStarts + 1;
+                      const result = [{ transcript: 'Leia o arquivo' }]; result.isFinal = true;
+                      window.__recognizer.onresult({ results: [result] }); window.__recognizer.onend();""")
+                    expect(page.locator('#approval-panel')).to_be_visible()
+                    page.get_by_role('button', name='Recusar', exact=True).click()
+                    expect(page.locator('#approval-panel')).not_to_be_visible()
+                    page.wait_for_function('() => window.__recognitionStarts >= window.__expectedStarts', timeout=5000)
+                    page.get_by_role('button', name='Encerrar conversação', exact=True).click()
+                    page.get_by_role('button', name='Configurações e voz').click()
+                    page.locator('#voice-enabled').check()
+                    page.get_by_role('button', name='Salvar', exact=True).click()
+                    expect(page.locator('#settings-message')).to_contain_text('Salvo')
+                    page.get_by_role('button', name='Fechar', exact=True).click()
+                    page.evaluate('window.__holdSpeech = true')
+                    page.get_by_role('button', name='Modo conversação', exact=True).click()
+                    page.evaluate("""window.__expectedStarts = window.__recognitionStarts + 1;
+                      const result = [{ transcript: 'Olá com voz' }]; result.isFinal = true;
+                      window.__recognizer.onresult({ results: [result] }); window.__recognizer.onend();""")
+                    expect(page.locator('body')).to_have_attribute('data-state', 'speaking')
+                    page.get_by_role('button', name='Parar voz', exact=True).click()
+                    page.wait_for_function('() => window.__recognitionStarts >= window.__expectedStarts', timeout=5000)
+                    page.get_by_role('button', name='Encerrar conversação', exact=True).click()
                     self.assertEqual(errors, [])
                     browser.close()
             finally:

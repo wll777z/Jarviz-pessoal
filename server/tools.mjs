@@ -6,6 +6,18 @@ const exec = promisify(execFile);
 const object = properties => ({ type: 'object', properties, required: Object.keys(properties), additionalProperties: false });
 const text = description => ({ type: 'string', description });
 const definitions = [
+  ['web_search', 'Pesquisa fontes públicas atuais com links e datas. Use para fatos recentes e notícias.', { query:text('Consulta pública, sem dados privados, até 400 caracteres.') }],
+  ['extract_webpage_text', 'Lê texto de página HTTPS pública com proteção de rede e limites.', { url:text('URL HTTPS pública.') }],
+  ['open_webpage', 'Abre página HTTPS pública no navegador Windows mediante aprovação.', { url:text('URL HTTPS pública.') }],
+  ['get_current_datetime', 'Obtém data/hora atual e fuso desta máquina sem acessar dados privados.', {}],
+  ['get_weather', 'Consulta clima atual por cidade via Open-Meteo, sem chave.', { city:text('Cidade e país, se necessário.') }],
+  ['get_system_status', 'Consulta memória, CPU, sistema e espaço em disco. Somente leitura.', {}],
+  ['list_processes', 'Lista processos Windows por consulta fixa, sem comandos arbitrários.', {}],
+  ['get_network_info', 'Consulta interfaces de rede locais. Esses dados podem ser privados.', {}],
+  ['search_files', 'Localiza nomes de arquivos na pasta autorizada, sem seguir links ou ler conteúdo. Busca limitada.', { query:text('Trecho do nome do arquivo.') }],
+  ['remember_memory', 'Guarda uma informação que o usuário explicitamente pediu para lembrar; não use para senhas.', { text:text('Informação autorizada.') }],
+  ['recall_memory', 'Consulta notas de memória autorizadas; só disponível com memória habilitada.', {}],
+  ['forget_memory', 'Esquece uma nota mediante solicitação do usuário.', { id:text('ID da nota a esquecer.') }],
   ['list_files', 'Lista até 200 itens de uma pasta autorizada.', { path: text('Pasta relativa à raiz ou caminho absoluto dentro dela.') }],
   ['read_file', 'Lê arquivo de texto UTF-8 de até 64 KiB. O resultado é enviado ao provedor de IA após aprovação.', { path: text('Arquivo de texto.') }],
   ['write_file', 'Cria novo arquivo UTF-8, sem sobrescrever arquivos existentes. A pasta pai deve existir.', { path: text('Novo arquivo.'), content: text('Conteúdo completo, até 64 KiB.') }],
@@ -36,6 +48,41 @@ async function safePath(input, config, create = false) {
 }
 export async function executeTool(name, args, config) {
   validateTool(name, args);
+  if (name === 'get_current_datetime') return JSON.stringify({ iso:new Date().toISOString(), timezone:Intl.DateTimeFormat().resolvedOptions().timeZone, local:new Date().toLocaleString('pt-BR') });
+  if (['web_search','extract_webpage_text','open_webpage','get_weather'].includes(name)) {
+    if (!config.webEnabled) throw new Error('Pesquisa web desabilitada nas configurações.');
+    const web = await import('./web.mjs');
+    if (name === 'web_search') return JSON.stringify(await web.webSearch(args.query));
+    if (name === 'get_weather') return JSON.stringify(await web.weather(args.city));
+    if (name === 'extract_webpage_text') { const response = await web.fetchPublic(args.url); return JSON.stringify({ text:web.extractText(response.text), sources:[{title:'Página consultada',url:response.url,published:null}], fetchedAt:new Date().toISOString() }); }
+    await web.assertPublicURL(args.url);
+    if (process.platform !== 'win32') throw new Error('Abertura de páginas disponível no Windows; você pode abrir a URL manualmente.');
+    await exec('rundll32.exe',['url.dll,FileProtocolHandler',args.url],{timeout:10000,windowsHide:true}); return 'Página aberta no navegador padrão.';
+  }
+  if (['remember_memory','recall_memory','forget_memory'].includes(name)) {
+    if (!config.memoryEnabled || !config.memory) throw new Error('Memória desabilitada. Habilite explicitamente nas configurações.');
+    if (name === 'remember_memory') return JSON.stringify(await config.memory.remember(args.text));
+    if (name === 'forget_memory') { await config.memory.forget(args.id); return 'Nota esquecida.'; }
+    return JSON.stringify(config.memory.notes());
+  }
+  if (name === 'get_system_status') {
+    const os = await import('node:os'); const { statfs } = await import('node:fs/promises'); const disk = await statfs(config.root);
+    return JSON.stringify({ os:os.type(),release:os.release(),cpuModel:os.cpus()[0]?.model,logicalCPUs:os.cpus().length,memoryTotal:os.totalmem(),memoryFree:os.freemem(),diskTotal:disk.blocks*disk.bsize,diskFree:disk.bavail*disk.bsize,uptimeSeconds:os.uptime(),notice:'CPU: identificação, não percentual de uso.' });
+  }
+  if (name === 'get_network_info') { const os=await import('node:os'); return JSON.stringify(os.networkInterfaces()); }
+  if (name === 'list_processes') {
+    if (process.platform !== 'win32') throw new Error('Consulta de processos disponível no Windows.');
+    const {stdout} = await exec('powershell.exe',['-NoProfile','-NonInteractive','-Command','Get-Process | Select-Object -First 100 Id,ProcessName,CPU,WorkingSet64 | ConvertTo-Json -Compress'],{timeout:10000,maxBuffer:65536,windowsHide:true}); return stdout;
+  }
+  if (name === 'search_files') {
+    if (!args.query.trim() || args.query.length > 200) throw new Error('Consulta inválida.');
+    const root=await safePath('.',config); const queue=[root]; const results=[]; let visited=0;
+    while (queue.length && visited < 1000 && results.length < 100) {
+      const folder=queue.shift(); let entries; try {entries=await readdir(folder,{withFileTypes:true});}catch{continue;}
+      for (const entry of entries) { if (++visited > 1000) break; if (entry.isSymbolicLink()) continue; const target=path.join(folder,entry.name); try{await safePath(target,config);}catch{continue;} if (entry.name.toLowerCase().includes(args.query.toLowerCase())) results.push(path.relative(root,target)); if(entry.isDirectory()) queue.push(target); if(results.length>=100)break; }
+    }
+    return JSON.stringify({results,visited,truncated:visited>=1000 || results.length>=100});
+  }
   if (name === 'run_command') {
     if (!config.allowCommands) throw new Error('Execução de comandos está desabilitada nas configurações.');
     if (process.platform !== 'win32') throw new Error('Comandos PowerShell disponíveis somente no Windows nesta versão.');

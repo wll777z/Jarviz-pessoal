@@ -154,7 +154,7 @@ test('legacy voice settings are ignored and removed on save while preserving the
     assert.equal(session.configured, true);
     assert.ok(!Object.keys(session).some(k => k.toLowerCase().includes('fish')));
     headers['X-Jarviz-Token'] = session.token;
-    assert.equal((await fetch(base + '/api/tts', { method: 'POST', headers, body: '{}' })).status, 404);
+    assert.equal((await fetch(base + '/api/tts', { method: 'POST', headers, body: '{}' })).status, 400);
     assert.equal((await fetch(base + '/api/config', { method: 'POST', headers, body: JSON.stringify({ root: directory, model: 'openrouter/free', allowCommands: false }) })).status, 200);
     const saved = JSON.parse(await readFile(file, 'utf8'));
     assert.equal(saved.key, 'old-ai-test-key');

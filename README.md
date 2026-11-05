@@ -1,84 +1,103 @@
-# Jarviz pessoal
+# JARVIZ Pessoal 3.0
 
-Assistente local para **Windows 10/11**, com interface HUD, conversa OpenRouter, voz do Windows e ações no computador mediante aprovação.
+Assistente local para Windows 10/11: HUD original, OpenRouter, fala segmentada, pesquisa pública, captura visual autorizada, memória opt-in e ferramentas Windows com aprovação.
 
-## Começar no Windows
+## Iniciar no Windows
 
-1. Instale **Node.js 24 LTS** de https://nodejs.org.
-2. Baixe ou clone este repositório e extraia todos os arquivos.
-3. Abra `Iniciar-Jarviz.cmd`. Na primeira execução ele instala a dependência pelo lockfile. Mantenha o terminal aberto.
-4. Abra **http://127.0.0.1:3210** no Edge ou Chrome.
-5. Em **Configurações e voz**, cole sua chave OpenRouter, escolha a pasta autorizada e salve. Não envie chaves pelo chat nem publique no GitHub.
-6. Escreva uma mensagem. Para ações em arquivos, confira os caminhos e argumentos e clique em **Aprovar e executar** ou **Recusar**.
+1. Instale **Node.js 24 LTS** de https://nodejs.org e extraia o projeto inteiro.
+2. Execute **Iniciar-Jarviz.cmd**. O navegador abre após o servidor iniciar. Mantenha o terminal aberto.
+3. Em **Configurações e voz**, mantenha sua chave OpenRouter existente ou informe uma chave nova e salve.
+4. Use **Testar IA**, **Consultar capacidades dos modelos**, **Testar pesquisa na internet** e **Testar voz** separadamente.
 
-Também pode executar `npm ci` e `npm start` na raiz. Não use mais `python -m http.server`: a conversa e as ferramentas dependem do servidor Node. Este projeto não funciona como assistente em hospedagem estática/GitHub Pages.
+Não existem dependências npm de produção. No terminal também funciona `npm ci` seguido de `npm start`. Endereço padrão: `http://127.0.0.1:3210`. `JARVIZ_PORT` altera a porta. A versão completa exige o servidor local; hospedagem estática mostra somente a prévia.
 
-## IA gratuita pela OpenRouter
+## IA e modelos
 
-Crie sua chave em https://openrouter.ai/settings/keys. O padrão é `openrouter/free`. Pode selecionar o identificador de um modelo `:free` com suporte a ferramentas. Sem cota, rede ou modelo compatível, a interface informa o erro; não troca automaticamente para modelos pagos. Identificadores pagos escolhidos manualmente podem gerar cobrança. O uso de modelos gratuitos depende dos limites, disponibilidade e políticas da sua conta.
+- Padrão: `openrouter/free`. Configure um **alternativo** com identificador `:free` para erros temporários, cota 429 ou resposta vazia.
+- Nunca há fallback automático para modelo pago. Modelos pagos exigem marcar a autorização explícita e escolher seus IDs.
+- Autenticação 401/402/403 não dispara tentativas cegas; o erro é exibido. O modelo alternativo não garante disponibilidade ou melhora de qualidade.
+- O catálogo informa suporte declarado a ferramentas e imagens. Uma requisição real ainda pode ser recusada pelo provedor ou política da conta.
+- O servidor exige parâmetros suportados no roteamento OpenRouter; limita chamadas por turno e agrupa até cinco ações por aprovação.
+- Contexto antigo é reduzido por grupos completos de ferramenta e resumo extrativo identificado como citações, sem inventar fatos nem chamar modelo pago para resumir.
+- Latência total do provedor e modelo efetivamente usado aparecem na interface. O texto chega após a resposta completa; **tokens de texto ainda não são transmitidos em streaming**.
 
-Conversas e resultados de ferramentas autorizados são enviados à OpenRouter e ao provedor do modelo. Não aprove leitura de conteúdo que não queira compartilhar. Arquivos do computador são dados, nunca instruções para o assistente.
+## Voz sem chave — prioridade local
 
-## Voz inspirada no Jarviz — sem chave de voz
+Os presets são **JARVIZ Clássico** (preferência en-GB), **Rápido**, **Português** e **Personalizado**. Padrão: português, velocidade 1,15 e tom 0,95 no navegador. O preset britânico escolhe voz britânica quando disponível; não traduz automaticamente a resposta. Peça uma resposta em inglês para ouvi-la nesse idioma.
 
-A fala usa a síntese de voz do Windows/navegador, sem conta de voz ou API externa configurada pelo usuário. O perfil inicial usa tom mais grave, velocidade 0,92 e seleção automática de uma voz masculina em português quando disponível, como Microsoft Daniel. Você pode escolher qualquer voz disponível e ajustar tom e velocidade em **Configurações e voz**.
+Texto completo fica na tela; áudio usa uma versão limpa e resumida, ou a resposta completa quando marcado. Links e blocos de código não são lidos literalmente. A fala é segmentada, pode ser interrompida por **Parar voz** ou pelo microfone, e não mantém filas duplicadas.
 
-O timbre depende do dispositivo e das vozes instaladas; não é uma cópia exata da voz do personagem. Se nenhuma voz aparecer, verifique **Configurações do Windows → Hora e idioma → Fala** e instale uma voz em português. Feche e abra o navegador após instalar. Algumas vozes do navegador usam rede, mas não exigem chave de voz no Jarviz; vozes marcadas como locais usam o mecanismo do dispositivo.
+### Navegador / Windows
 
-Clique em **Testar voz** para ouvir o perfil mesmo antes de cadastrar a OpenRouter. **Parar voz** interrompe a reprodução. A chave OpenRouter continua necessária somente para conversar com a IA. Preferências antigas de Fish Audio são ignoradas; essa integração e seus campos foram removidos. Campos Fish de uma configuração antiga são descartados do arquivo no próximo salvamento.
+Funciona com as vozes disponíveis no dispositivo. O seletor prioriza vozes masculinas no idioma do preset e aceita escolha manual. Algumas vozes usam serviços do navegador; outras são locais. Nenhuma chave de voz é pedida. Se necessário, instale uma voz em **Configurações Windows → Hora e idioma → Fala** e reinicie o navegador. Não há promessa de reproduzir a voz exata de um ator/personagem.
 
-O microfone só é ativado pelo botão e pela permissão do navegador. O reconhecimento pode usar o serviço remoto do navegador. A transcrição aparece no campo e **você envia**; não há escuta permanente nem palavra de ativação. Se não houver suporte, digite normalmente.
+### Piper neural local opcional
 
-## Ações realmente implementadas
+O adaptador usa o [Piper oficial](https://github.com/OHF-Voice/piper1-gpl), com código GPL-3.0 e modelos com licenças próprias. A documentação CLI foi consultada para confirmar `--model`, `--output_file` e `--length_scale`. Não incluímos o motor nem vozes de terceiros.
 
-- Listar uma pasta (até 200 itens).
-- Ler arquivos UTF-8 de até 64 KiB.
-- Criar pastas e arquivos novos sem sobrescrever arquivos existentes.
-- Mover arquivos dentro da pasta autorizada, sem substituir destinos.
-- Excluir um único arquivo, permanentemente, com confirmação; não exclui pastas recursivamente.
-- Abrir arquivo ou executável por caminho no Windows.
-- Executar PowerShell, quando habilitado, com confirmação, limite de saída e espera de até 20 segundos. O limite interrompe o PowerShell, mas programas que ele iniciou podem continuar; confira o Windows antes de repetir comandos após erro ou timeout.
+1. Instale uma distribuição confiável do Piper para seu Windows; a documentação oficial também oferece instalação Python `pip install piper-tts`.
+2. Escolha e baixe **manualmente** um modelo compatível `.onnx` e seu `.onnx.json`, verificando o MODEL_CARD/licença e amostras. Para o preset clássico, procure voz masculina en-GB; para português, voz masculina pt-BR/pt-PT. Disponibilidade, licença e qualidade de cada voz precisam ser confirmadas.
+3. Em Configurações, selecione **Piper**, informe os caminhos completos do executável (ex.: `C:\Piper\piper.exe`) e modelo, salve e teste.
 
-O servidor usa as permissões da conta que o iniciou. A pasta autorizada limita as ferramentas de arquivos, inclusive links para fora dela. **PowerShell não é restrito à pasta**: pode afetar arquivos, programas e rede acessíveis à sua conta. Leia o comando completo antes de aprovar. Abrir um arquivo pode executar um programa. Não execute como administrador. Não existe acesso remoto irrestrito, controle de mouse/tela ou instalação oculta.
+Não baixe gravações protegidas nem clone ator sem autorização. Recursos próprios/licenciados podem ser usados como modelos Piper compatíveis, desde que o usuário tenha direitos.
 
-Cada conjunto de ações exige aprovação; o modelo não pode aprovar sua própria execução. O painel mostra os argumentos completos. Enquanto houver aprovação pendente, novos comandos e mudanças de configuração ficam bloqueados. Recarregar a página recupera a aprovação pendente. Aprovação usada não pode ser repetida. Arquivos de credenciais conhecidos e a pasta de dados do Jarviz não são acessíveis pelas ferramentas de arquivos. Comandos PowerShell habilitados têm o alcance mais amplo da sua conta, portanto essa proteção não se aplica a comandos explicitamente aprovados.
+Cada segmento gera WAV local; o próximo é pré-sintetizado enquanto o atual toca. Cache em `%APPDATA%\Jarviz\tts-cache` limita áudios a 50 MiB. O cache contém voz/texto falado e deve ser tratado como dado pessoal. Pode ser removido com o Jarviz fechado. O modelo é carregado por processo: há custo de inicialização; não houve benchmark de voz neural real nesta máquina. Não há download automático de modelos, CUDA obrigatório ou garantia de timbre/velocidade em todo PC. Pitch é do navegador; no Piper, velocidade usa length_scale e timbre/idioma vêm do modelo. Erro do Piper aciona fallback visível ao navegador.
 
-## Dados locais
+## Pesquisa e fontes atuais
 
-- Windows: `%APPDATA%\Jarviz\config.json` guarda a chave OpenRouter e configurações fora do repositório. **A chave fica em texto nesse arquivo**, com a proteção da conta/pasta local, sem criptografia própria. Não compartilhe essa pasta. Contas com acesso aos seus arquivos podem lê-las.
-- `actions.jsonl`, na mesma pasta, registra horário, nome da ferramenta e decisão, sem conteúdo, caminho, comando ou chave.
-- Conversa somente em memória do servidor; **Limpar conversa** a remove. Provedores externos podem ter suas próprias políticas de retenção. Reiniciar o servidor também limpa a conversa e as aprovações.
-- Preferências de voz/movimento ficam no armazenamento local do navegador; chaves nunca ficam nele.
-- O servidor escuta somente em `127.0.0.1`, verifica origem/Host e exige token de sessão nas APIs. Somente os arquivos públicos explicitamente permitidos são servidos; código do servidor, `.git` e configurações não são publicados.
+Ferramentas: `web_search`, `extract_webpage_text`, `open_webpage`, `get_current_datetime` e `get_weather`.
 
-Para remover uma chave salva, encerre o Jarviz e remova o campo correspondente em `config.json`, ou remova o arquivo inteiro e configure novamente. A variável `OPENROUTER_API_KEY` também é aceita na primeira configuração; configuração salva tem precedência. `JARVIZ_PORT` permite escolher outra porta (abra o endereço indicado no terminal).
+- Notícias: Google News RSS. Pesquisa geral: Bing RSS. São interfaces públicas sem chave, com disponibilidade/abrangência variáveis; não são uma API com SLA nem busca exaustiva.
+- Clima por cidade: geocodificação e previsão atuais [Open-Meteo](https://open-meteo.com/), respeitando limites/termos de uso pessoal.
+- Fontes, datas fornecidas e horário da consulta são preservados. Data ausente não é inventada. Fontes aparecem como links na interface.
+- Consultas externas e conteúdo retornado são dados não confiáveis. Aprovações mostram a consulta/URL; não aprove envio de dados privados que não queira compartilhar.
+- Leitura de páginas exige HTTPS público, porta padrão, sem credenciais. Endereços privados/especiais e URLs perigosas são recusados; DNS é validado e fixado na conexão, redirecionamentos são revalidados, downloads e tempo são limitados.
+- **Proxies HTTPS configurados não são suportados pelo adaptador de páginas**: ele informa a limitação em vez de ignorar a política. Não remova proxies para contornar redes restritas. OpenRouter usa o transporte fetch do Node; a configuração de proxy/TLS da máquina precisa ser adequada.
+- Se a rede, RSS ou API falhar, o erro é mostrado; não há notícia simulada no aplicativo real.
 
-## Verificar
+## Conversação e push-to-talk
+
+**Modo conversação** pede permissão explícita e envia transcrições finais automaticamente. Durante resposta/fala, o reconhecimento pausa para não transcrever o próprio assistente. A escuta retoma ao concluir quando a sessão segue ativa; silêncio sem transcrição pausa a sessão. **Encerrar conversação** desativa a sessão.
+
+**Segure para falar** funciona por mouse/toque ou tecla Espaço no botão, e interrompe a fala atual. Fora do modo conversação, revise a transcrição e envie manualmente. Não há gravação oculta, escuta permanente ou palavra de ativação. O reconhecimento do navegador pode usar serviço remoto; suporte depende de Edge/Chrome e permissões. O modo é half-duplex: interrupção da resposta é pelo microfone/push-to-talk, não por escuta oculta durante a própria fala.
+
+Reconhecimento local (ex.: Vosk/Whisper) exigiria motor/modelo adicionais e integração própria; não é anunciado como funcional nesta entrega. Nenhum modelo foi instalado automaticamente.
+
+## Visão autorizada
+
+Use **Capturar tela** para abrir o seletor do navegador e escolher tela, janela ou aba quando suportado. É capturado um único quadro; as tracks são encerradas. **Adicionar imagem** é alternativa manual PNG/JPEG. A imagem é normalizada para JPEG com até 1600 pixels por dimensão e prévia local.
+
+Marque o consentimento específico antes de enviar a próxima mensagem. Só então a imagem é transmitida à OpenRouter e ao provedor. Escolha um modelo visual gratuito no catálogo; sem capacidade visual verificada, o envio é recusado. Não há captura contínua ou acionada secretamente pelo modelo. A imagem não entra na memória persistente e é retirada do contexto após a análise. A resposta textual sobre ela pode entrar no histórico se a memória estiver habilitada.
+
+## Histórico e memória opt-in
+
+Ative em Configurações e escolha retenção de 1 a 365 dias (padrão 30). Armazenamento JSON atômico local, sem dependência de banco: até 20 conversas de 120 mensagens, 100 notas e capacidade configurável de 1 a 20 MiB (padrão 5 MiB). É adequado ao uso pessoal de uma instância, não a múltiplos servidores/processos sobre o mesmo perfil.
+
+**Histórico e memória** permite guardar notas explicitamente, esquecer notas, retomar conversas e excluir tudo. Histórico e notas são separados. Retomar conversa restaura somente texto e nunca reexecuta ações antigas. Desabilitar memória impede novas gravações/recuperação; dados existentes permanecem até exclusão explícita. A exclusão continua disponível com memória desabilitada. Tokens/chaves conhecidos, identificadores longos e parágrafos com indícios de credenciais (inclusive valores em linhas seguintes) são omitidos de forma conservadora; notas que contenham credenciais reconhecíveis são recusadas. Não use a memória como cofre de senhas.
+
+## Windows e arquivos
+
+Preserva listar/ler/criar/mover/excluir arquivo, criar pasta, abrir caminho e executar PowerShell autorizado. Novidades: busca limitada de nomes (até 1000 entradas/100 resultados), identificação de CPU, memória livre/total, disco, sistema/uptime, processos Windows e interfaces de rede. CPU é identificação, não percentual instantâneo inventado.
+
+Operações de arquivos respeitam pasta autorizada, não seguem links para fora dela e protegem caminhos de credenciais conhecidos e os dados Jarviz. Consultas privadas também exigem aprovação; data/hora pode ser consultada automaticamente. Consultas de diagnóstico usam APIs do sistema ou scripts fixos. Organizar pastas usa criação/movimentação já aprovadas, sem organização automática oculta.
+
+PowerShell começa desabilitado e exige confirmação por comando. **Não é restrito à pasta autorizada**: opera com as permissões da conta Windows. Espera de até 20 segundos e limite de saída não garantem encerrar programas filhos; confira o Windows antes de repetir. Exclusão de arquivo é permanente, sem remoção recursiva de pastas. Não execute Jarviz como administrador.
+
+## Dados e segurança
+
+Configuração/chave: `%APPDATA%\Jarviz\config.json`, fora do repositório, em texto protegido pelas permissões da conta, sem criptografia própria. A chave existente é preservada. `OPENROUTER_API_KEY` é alternativa na primeira configuração. Memória: `memory.json`; decisões: `actions.jsonl` (sem comandos, caminhos, conteúdo ou chaves). Preferências de voz ficam no navegador, sem chaves.
+
+O backend escuta só `127.0.0.1`, valida Host/origem e token, sem CORS. Só módulos públicos explicitamente permitidos são servidos/exportados. Não publique perfil local ou dados pessoais. Conversas, imagens autorizadas e resultados de ferramentas são enviados ao provedor de IA, sujeito à política dele.
+
+## Testes e relatório
 
 ```sh
 npm ci
 npm run check
 npm test
+python3 tests/browser.py
 ```
 
-Testes Node verificam autenticação, origem, aprovação/recusa/replay, arquivos temporários reais, limites de caminhos e seleção automática de voz. Não usam nem consomem suas APIs.
+Os testes de navegador exigem Playwright e Chromium (`JARVIZ_CHROMIUM` configura o caminho). Provedores externos, captura e Web Speech são simulados nos testes; o adaptador Piper é exercitado com CLI simulado, não uma voz neural real. Veja [validação técnica](docs/validation-3.0.md) para resultados e limitações. Não declarar validado no Windows a partir de testes Linux.
 
-O teste opcional `python3 tests/browser.py` exige Python, Playwright e Chromium; no Linux usa `/usr/bin/chromium`, ou configure `JARVIZ_CHROMIUM`. Ele inicia um backend com provedor de teste explícito, valida conversa, aprovações, persistência de movimento e layout móvel. Não confirma IA real nem qualidade de voz. Capturas no ambiente de desenvolvimento: `/workspace/jarviz-functional-desktop.png` e `/workspace/jarviz-functional-mobile.png`.
-
-A validação automática foi feita em Linux. Abertura de programas, PowerShell, permissões do microfone e som precisam ser validados no Windows do usuário. Chamadas reais OpenRouter dependem de chaves e acesso à rede; não são apresentadas como verificadas sem esses requisitos.
-
-## Site público no GitHub Pages
-
-O workflow `.github/workflows/pages.yml` publica somente o HUD e os links de instalação em `dist/`. Backend, testes, chaves e dados locais não entram no artefato. O site é uma prévia explicitamente identificada: ele não faz chamadas de IA, não captura áudio e não executa ações no computador. O botão de download entrega o projeto completo; depois de iniciar no Windows, o botão “Abrir Jarviz local já iniciado” leva ao servidor da própria máquina na porta padrão 3210.
-
-Ative em **Settings → Pages → Build and deployment → Source → GitHub Actions**. Depois execute o workflow **Publicar prévia Jarviz** em **Actions**, ou faça um novo push em main. O endereço padrão previsto é `https://wll777z.github.io/Jarviz-pessoal/`; confirme o resultado do deploy antes de tratá-lo como publicado.
-
-Para gerar os arquivos estáticos localmente: `node scripts/build-pages.mjs`. A versão completa continua sendo iniciada com `Iniciar-Jarviz.cmd` e não depende do Pages. O iniciador abre o navegador no Windows após o servidor iniciar.
-
-## Diagnosticar ausência de resposta ou áudio
-
-Em Configurações, salve alterações e clique em **Testar IA**. Esse botão faz uma requisição curta ao modelo configurado, sem alterar a conversa ou executar ferramentas, e mostra o resultado dentro da janela. **Chave cadastrada** indica somente que foi salva; não confirma autenticação, cota ou compatibilidade do modelo. O teste usa a solicitação com ferramentas do aplicativo para reproduzir a mesma compatibilidade exigida na conversa.
-
-**Testar voz** mostra progresso e erro dentro da janela, sem precisar de chave de voz. Fora das configurações, erros e a última resposta aparecem junto ao campo de mensagem. Respostas vazias do modelo são tratadas como falha, sem deixar o núcleo preso em “processando”.
-
-Copie somente a mensagem do teste para pedir ajuda; não compartilhe chaves ou config.json. HTTP 401 indica autenticação; 402, cota/créditos; 403, acesso/permissão; 404 pode indicar modelo, disponibilidade ou política de dados, conforme o detalhe retornado pelo serviço; 429 indica limite de uso. Erros de voz não apagam a resposta de texto.
+A prévia GitHub Pages é gerada por `npm run build:pages`; ela não executa IA, pesquisa, memória, microfone ou arquivos. O workflow de deploy só roda em main; a versão 3.0 pode ser revisada numa branch sem merge/deploy automático.
